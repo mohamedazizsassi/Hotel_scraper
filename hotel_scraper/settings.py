@@ -3,6 +3,15 @@ Scrapy settings for hotel_scraper project.
 Production-ready configuration with polite crawling defaults.
 """
 
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
+
 BOT_NAME = "hotel_scraper"
 
 SPIDER_MODULES = ["hotel_scraper.spiders"]
@@ -56,8 +65,8 @@ ITEM_PIPELINES = {
 # ------------------------------------------------------------------ #
 #  MongoDB                                                             #
 # ------------------------------------------------------------------ #
-MONGO_URI = "mongodb://localhost:27017"
-MONGO_DB  = "hotel_scraper"
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+MONGO_DB  = os.getenv("MONGO_DB", "hotel_scraper")
 
 # ------------------------------------------------------------------ #
 #  Feeds (optional JSON export alongside MongoDB)                      #

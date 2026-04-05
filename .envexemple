@@ -1,0 +1,9 @@
+# Example environment variables (safe to commit)
+# Replace these values in your local .env file.
+MONGO_URI=mongodb://localhost:27017
+MONGO_DB=hotel_scraper
+
+# Optional Mongo timeouts used by MongoDBPipeline
+MONGO_SERVER_SELECTION_TIMEOUT_MS=3000
+MONGO_CONNECT_TIMEOUT_MS=3000
+MONGO_SOCKET_TIMEOUT_MS=5000

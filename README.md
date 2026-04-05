@@ -30,6 +30,14 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+3. Configure environment variables:
+
+```powershell
+Copy-Item .envexemple .env
+```
+
+Then edit `.env` with your real MongoDB values.
+
 ## Run Spiders
 
 List available spiders:
@@ -48,6 +56,8 @@ python -m scrapy crawl tunisiepromo
 ## Output and Storage
 
 Items are processed through pipelines and stored in MongoDB according to `hotel_scraper/pipelines.py` and the settings in `hotel_scraper/settings.py`.
+
+MongoDB credentials are loaded from environment variables in `.env`.
 
 ## Git Workflow
 
