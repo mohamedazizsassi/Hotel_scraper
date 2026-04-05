@@ -52,7 +52,7 @@ class TunisiePromoSpider(scrapy.Spider):
     #  Request generation                                                  #
     # ------------------------------------------------------------------ #
 
-    def start_requests(self):
+    async def start(self):
         """
         Generates one Scrapy Request per day in the date window.
         tunisiepromo requires an extra "Product": "hotel" field
