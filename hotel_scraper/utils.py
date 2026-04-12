@@ -39,6 +39,7 @@ def build_encoded_payload(
     check_out: str,
     city_id:   int,
     adults:    int,
+    children:  int = 0,
     extra_fields: dict | None = None,
 ) -> str:
     """
@@ -57,7 +58,7 @@ def build_encoded_payload(
             "City":     str(city_id),
         },
         "Rooms": [
-            {"Adult": str(adults), "children": 0, "Child": []},
+            {"Adult": str(adults), "children": int(children), "Child": []},
         ],
         "GroupingHotel":   True,
         "CombinationRooms": False,
