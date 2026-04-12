@@ -11,7 +11,7 @@ from datetime import date, datetime, timezone
 import scrapy
 
 from hotel_scraper.items import HotelPriceItem
-from hotel_scraper.utils import build_encoded_payload, date_range_1day, to_float
+from hotel_scraper.utils import build_encoded_payload, date_range, to_float
 
 
 logger = logging.getLogger(__name__)
@@ -30,6 +30,7 @@ class PromoHotelSpider(scrapy.Spider):
     Spider arguments:
         city_id  (int)  : city to scrape   (default: 3 = Sousse)
         days     (int)  : how many nights forward to scrape (default: 30)
+        nights   (int)  : stay length (1, 3, 5) (default: 1)
         adults   (int)  : number of adults per room (default: 2)
         children (int)  : number of children per room (default: 0)
     """
@@ -43,12 +44,17 @@ class PromoHotelSpider(scrapy.Spider):
     #  Spider initialisation                                               #
     # ------------------------------------------------------------------ #
 
-    def __init__(self, city_id=3, days=30, adults=2, children=0, *args, **kwargs):
+    def __init__(self, city_id=3, days=30, nights=1, adults=2, children=0, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.city_id = int(city_id)
         self.days    = int(days)
+        self.nights  = int(nights)
         self.adults  = int(adults)
         self.children = int(children)
+
+        if self.nights not in (1, 3, 5):
+            logger.warning("Invalid nights=%s; defaulting to 1", self.nights)
+            self.nights = 1
 
     # ------------------------------------------------------------------ #
     #  Request generation                                                  #
@@ -62,11 +68,11 @@ class PromoHotelSpider(scrapy.Spider):
         """
         today = date.today()
         logger.info(
-            "PromoHotel spider starting | city=%d | %d nights | from %s",
-            self.city_id, self.days, today.isoformat(),
+            "PromoHotel spider starting | city=%d | days=%d | nights=%d | from %s",
+            self.city_id, self.days, self.nights, today.isoformat(),
         )
 
-        for check_in, check_out in date_range_1day(today, self.days):
+        for check_in, check_out in date_range(today, self.days, nights=self.nights):
             encoded = build_encoded_payload(
                 check_in  = check_in,
                 check_out = check_out,
@@ -83,6 +89,7 @@ class PromoHotelSpider(scrapy.Spider):
                 meta     = {
                     "check_in":  check_in,
                     "check_out": check_out,
+                    "nights":    self.nights,
                     "city_id":   self.city_id,
                     "adults":    self.adults,
                     "children":  self.children,
@@ -103,6 +110,7 @@ class PromoHotelSpider(scrapy.Spider):
         """
         check_in  = response.meta["check_in"]
         check_out = response.meta["check_out"]
+        nights    = response.meta["nights"]
         city_id   = response.meta["city_id"]
         adults    = response.meta["adults"]
         children  = response.meta["children"]
@@ -153,6 +161,7 @@ class PromoHotelSpider(scrapy.Spider):
                         scraped_at    = scraped_at,
                         check_in      = check_in,
                         check_out     = check_out,
+                        nights        = nights,
                         city_id       = city_id,
                         adults        = adults,
                         children      = children,

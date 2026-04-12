@@ -71,10 +71,13 @@ MONGO_DB  = os.getenv("MONGO_DB", "hotel_scraper")
 # ------------------------------------------------------------------ #
 #  Feeds (optional JSON export alongside MongoDB)                      #
 # ------------------------------------------------------------------ #
-# Uncomment to also write a JSONL file per run:
-# FEEDS = {
-#     "output/hotel_prices_%(time)s.jsonl": {"format": "jsonlines"},
-# }
+# Write a CSV file per run (per spider) in output/
+FEEDS = {
+    "output/%(name)s_%(time)s.csv": {
+        "format": "csv",
+        "encoding": "utf-8",
+    },
+}
 
 # ------------------------------------------------------------------ #
 #  Logging                                                             #
