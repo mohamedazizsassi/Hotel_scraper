@@ -92,23 +92,10 @@ class MongoDBPipeline:
         adapter = ItemAdapter(item)
         doc = dict(adapter)
 
-        # Upsert: update if same hotel+date+room already scraped
-        filter_key = {
-            "source":        doc.get("source"),
-            "hotel_name":    doc.get("hotel_name"),
-            "check_in":      doc.get("check_in"),
-            "boarding_name": doc.get("boarding_name"),
-            "room_name":     doc.get("room_name"),
-            "city_id":       doc.get("city_id"),
-        }
-        doc["updated_at"] = datetime.now(timezone.utc).isoformat()
-
         try:
-            self.db[self.COLLECTION].update_one(
-                filter_key,
-                {"$set": doc},
-                upsert=True,
-            )
+            self.db[self.COLLECTION].insert_one(doc)
+        except pymongo.errors.DuplicateKeyError:
+            logger.debug("Duplicate item skipped: %s", doc)
         except pymongo.errors.PyMongoError as exc:
             logger.error("MongoDB write failed; item skipped in DB only: %s", exc)
         return item
@@ -126,9 +113,9 @@ class MongoDBPipeline:
                 ("check_in",      pymongo.ASCENDING),
                 ("boarding_name", pymongo.ASCENDING),
                 ("room_name",     pymongo.ASCENDING),
+                ("scraped_at",    pymongo.ASCENDING),
             ],
-            unique=True,
-            name="unique_hotel_price",
+            name="idx_hotel_price_time",
         )
         # Fast range query on check_in for ML feature pipelines
         col.create_index([("check_in", pymongo.ASCENDING)], name="idx_check_in")
@@ -155,6 +142,7 @@ class DuplicateFilterPipeline:
             item.get("check_in"),
             item.get("boarding_name"),
             item.get("room_name"),
+            item.get("scraped_at"),
         )
         if key in self.seen:
             logger.debug("Duplicate dropped: %s", key)
