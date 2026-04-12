@@ -14,19 +14,19 @@ from urllib.parse import quote
 #  Date range generator                                                #
 # ------------------------------------------------------------------ #
 
-def date_range_1day(start: date, days: int = 30):
+def date_range(start: date, days: int = 30, nights: int = 1):
     """
     Yields (check_in, check_out) tuples where:
       - check_in  runs from `start` to `start + days - 1`
-      - check_out = check_in + 1 day  (always 1-night stays)
+    - check_out = check_in + `nights` days
 
     Usage:
-        for ci, co in date_range_1day(date.today(), 30):
+        for ci, co in date_range(date.today(), 30, nights=1):
             ...
     """
     for offset in range(days):
         check_in  = start + timedelta(days=offset)
-        check_out = check_in + timedelta(days=1)
+        check_out = check_in + timedelta(days=nights)
         yield check_in.isoformat(), check_out.isoformat()
 
 
