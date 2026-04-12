@@ -148,49 +148,57 @@ class TunisiePromoSpider(scrapy.Spider):
             for boarding in boardings:
                 boarding_name = boarding.get("Name", "Unknown Boarding")
 
-                # tunisiepromo only exposes one room per boarding in Pax[0]
-                # We extract it and yield a single item per boarding type.
-                price = self._extract_price(boarding)
-                if price is None:
+                rooms = self._extract_rooms(boarding)
+                if not rooms:
                     logger.debug(
-                        "No price for %s / %s on %s",
+                        "No rooms for %s / %s on %s",
                         hotel_name, boarding_name, check_in,
                     )
                     continue
 
-                yield HotelPriceItem(
-                    source        = self.SOURCE,
-                    scraped_at    = scraped_at,
-                    check_in      = check_in,
-                    check_out     = check_out,
-                    nights        = nights,
-                    city_id       = city_id,
-                    adults        = adults,
-                    children      = children,
-                    hotel_name    = hotel_name,
-                    stars         = stars,
-                    boarding_name = boarding_name,
-                    room_name     = "N/A",        # not exposed by tunisiepromo
-                    price         = price,
-                    sur_demande   = False,
-                    supplements   = [],
-                )
+                for room in rooms:
+                    yield HotelPriceItem(
+                        source        = self.SOURCE,
+                        scraped_at    = scraped_at,
+                        check_in      = check_in,
+                        check_out     = check_out,
+                        nights        = nights,
+                        city_id       = city_id,
+                        adults        = adults,
+                        children      = children,
+                        hotel_name    = hotel_name,
+                        stars         = stars,
+                        boarding_name = boarding_name,
+                        room_name     = room["name"],
+                        price         = room["price"],
+                        sur_demande   = False,
+                        supplements   = [],
+                    )
 
     # ------------------------------------------------------------------ #
-    #  Price extractor                                                     #
+    #  Room extractor                                                     #
     # ------------------------------------------------------------------ #
 
     @staticmethod
-    def _extract_price(boarding: dict) -> float | None:
+    def _extract_rooms(boarding: dict) -> list[dict]:
         """
-        tunisiepromo packs the price at Pax[0].Rooms[0].Price.
-        Returns None if the path is missing or price is invalid.
+        tunisiepromo packs rooms at Pax[0].Rooms.
+        Returns a list of {name, price} for all available rooms.
         """
+        rooms: list[dict] = []
         try:
-            raw = boarding["Pax"][0]["Rooms"][0]["Price"]
-            return to_float(raw)
+            raw_rooms = boarding["Pax"][0]["Rooms"]
         except (KeyError, IndexError, TypeError):
-            return None
+            return rooms
+
+        for room in raw_rooms:
+            room_name = room.get("Name") or "Unknown room"
+            price = to_float(room.get("Price"))
+            if price is None:
+                continue
+            rooms.append({"name": room_name, "price": price})
+
+        return rooms
 
     # ------------------------------------------------------------------ #
     #  Error handler                                                       #
