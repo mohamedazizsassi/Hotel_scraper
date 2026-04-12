@@ -31,6 +31,7 @@ class TunisiePromoSpider(scrapy.Spider):
         city_id  (int)  : city to scrape   (default: 34 = Hammamet)
         days     (int)  : how many nights forward to scrape (default: 30)
         adults   (int)  : number of adults per room (default: 2)
+        children (int)  : number of children per room (default: 0)
     """
 
     name            = "tunisiepromo"
@@ -42,11 +43,12 @@ class TunisiePromoSpider(scrapy.Spider):
     #  Spider initialisation                                               #
     # ------------------------------------------------------------------ #
 
-    def __init__(self, city_id=34, days=30, adults=2, *args, **kwargs):
+    def __init__(self, city_id=34, days=30, adults=2, children=0, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.city_id = int(city_id)
         self.days    = int(days)
         self.adults  = int(adults)
+        self.children = int(children)
 
     # ------------------------------------------------------------------ #
     #  Request generation                                                  #
@@ -70,6 +72,7 @@ class TunisiePromoSpider(scrapy.Spider):
                 check_out    = check_out,
                 city_id      = self.city_id,
                 adults       = self.adults,
+                children     = self.children,
                 extra_fields = {"Product": "hotel"},   # tunisiepromo-specific
             )
             url = f"{self.BASE_URL}?HotelSearch={encoded}"
@@ -83,6 +86,7 @@ class TunisiePromoSpider(scrapy.Spider):
                     "check_out": check_out,
                     "city_id":   self.city_id,
                     "adults":    self.adults,
+                    "children":  self.children,
                     "dont_cache": True,
                 },
                 errback  = self.handle_error,
@@ -102,6 +106,7 @@ class TunisiePromoSpider(scrapy.Spider):
         check_out  = response.meta["check_out"]
         city_id    = response.meta["city_id"]
         adults     = response.meta["adults"]
+        children   = response.meta["children"]
         scraped_at = datetime.now(timezone.utc).isoformat()
 
         try:
@@ -152,6 +157,7 @@ class TunisiePromoSpider(scrapy.Spider):
                     check_out     = check_out,
                     city_id       = city_id,
                     adults        = adults,
+                    children      = children,
                     hotel_name    = hotel_name,
                     stars         = stars,
                     boarding_name = boarding_name,

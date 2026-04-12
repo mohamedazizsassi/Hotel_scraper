@@ -15,6 +15,7 @@ class HotelPriceItem(scrapy.Item):
     check_out      = scrapy.Field()   # "YYYY-MM-DD"
     city_id        = scrapy.Field()   # int
     adults         = scrapy.Field()   # int
+    children       = scrapy.Field()   # int
 
     # Hotel info
     hotel_name     = scrapy.Field()
