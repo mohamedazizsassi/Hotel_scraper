@@ -1,0 +1,98 @@
+├── scraper/                              ← MOVE your hotel_scraper/ here
+│   ├── CLAUDE.md
+│   ├── README.md
+│   ├── requirements.txt
+│   ├── run_scrape.bat
+│   ├── run_scrape.py
+│   ├── scrapy.cfg
+│   ├── output/                           ← your CSVs live here ✅
+│   └── hotel_scraper/
+│       ├── constants.py
+│       ├── items.py
+│       ├── settings.py
+│       ├── utils.py
+│       ├── pipelines/
+│       │   ├── dedup.py
+│       │   ├── mongodb.py
+│       │   ├── normalization.py
+│       │   └── parquet.py
+│       └── spiders/
+│           ├── base.py
+│           ├── promohotel.py
+│           └── tunisiepromo.py
+│
+├── ml/                                   ← CREATE THIS NEXT
+│   ├── requirements.txt
+│   ├── feature_engineering/
+│   │   ├── build_features.py             ← reads output/ CSVs → feature table
+│   │   └── load_postgres.py              ← pushes features to PostgreSQL
+│   ├── models/
+│   │   ├── forecasting/
+│   │   │   ├── train.py                  ← LightGBM price predictor
+│   │   │   ├── evaluate.py
+│   │   │   └── predict.py
+│   │   ├── anomaly/
+│   │   │   ├── zscore.py
+│   │   │   └── isolation_forest.py
+│   │   └── recommendation/
+│   │       └── recommender.py
+│   ├── artifacts/                        ← saved .joblib model files
+│   └── notebooks/                        ← EDA only, never production
+│
+├── backend/                              ← CREATE AFTER ML
+│   ├── requirements.txt
+│   ├── core/                             ← shared: auth, db, config
+│   │   ├── auth.py                       ← JWT logic
+│   │   ├── database.py                   ← SQLAlchemy engine
+│   │   ├── config.py                     ← env vars
+│   │   └── dependencies.py              ← FastAPI Depends()
+│   ├── services/
+│   │   ├── pricing/
+│   │   │   ├── main.py                   ← FastAPI app
+│   │   │   ├── routes.py
+│   │   │   └── schemas.py
+│   │   ├── alerts/
+│   │   │   ├── main.py
+│   │   │   ├── routes.py
+│   │   │   └── schemas.py
+│   │   ├── recommendations/
+│   │   │   ├── main.py
+│   │   │   ├── routes.py
+│   │   │   └── schemas.py
+│   │   └── admin/
+│   │       ├── main.py                   ← admin-only endpoints
+│   │       ├── routes.py
+│   │       └── schemas.py
+│   └── main.py                           ← mounts all services
+│
+├── frontend/                             ← YOUR ANGULAR APP
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── admin/                    ← AdminModule
+│   │   │   │   ├── dashboard/
+│   │   │   │   ├── hotels/               ← manage platform hotels
+│   │   │   │   ├── users/                ← manage managers
+│   │   │   │   └── scraper/              ← scraper health monitor
+│   │   │   ├── manager/                  ← ManagerModule
+│   │   │   │   ├── dashboard/
+│   │   │   │   ├── calendar/             ← competitor calendar
+│   │   │   │   ├── optimizer/            ← AI recommendations
+│   │   │   │   └── alerts/               ← alert center
+│   │   │   ├── auth/                     ← login page
+│   │   │   ├── core/                     ← guards, interceptors, services
+│   │   │   └── shared/                   ← reusable components
+│   └── ...
+│
+├── database/
+│   └── postgres/
+│       └── migrations/
+│           ├── 001_users.sql
+│           ├── 002_hotels.sql
+│           ├── 003_competitor_selections.sql
+│           ├── 004_prices.sql
+│           ├── 005_predictions.sql
+│           └── 006_alerts.sql
+│
+├── docker-compose.yml                    ← wires everything together
+├── .env.example
+└── README.md

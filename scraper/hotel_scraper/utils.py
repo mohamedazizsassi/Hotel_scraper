@@ -14,24 +14,23 @@ from urllib.parse import quote
 #  Date range generator                                                #
 # ------------------------------------------------------------------ #
 
-def date_range(start: date, days: int = 30, nights: int = 1):
+def date_range(start: date, days: int = 30, nights: int = 1, start_day: int = 0):
     """
     Yields (check_in, check_out) tuples where:
-      - check_in  runs from `start` to `start + days - 1`
-    - check_out = check_in + `nights` days
+      - check_in  runs from `start + start_day` for `days` consecutive days
+      - check_out = check_in + `nights` days
 
-    Usage:
-        for ci, co in date_range(date.today(), 30, nights=1):
-            ...
+    `start_day` offsets the beginning of the window (e.g. start_day=60
+    starts scraping 60 days from `start`).
     """
-    for offset in range(days):
+    for offset in range(start_day, start_day + days):
         check_in  = start + timedelta(days=offset)
         check_out = check_in + timedelta(days=nights)
         yield check_in.isoformat(), check_out.isoformat()
 
 
 # ------------------------------------------------------------------ #
-#  Payload builders                                                    #
+#  Payload builder                                                     #
 # ------------------------------------------------------------------ #
 
 def build_encoded_payload(
@@ -45,9 +44,6 @@ def build_encoded_payload(
     """
     Builds and base64-encodes the JSON search payload shared by
     promohotel.tn and tunisiepromo.tn.
-
-    `extra_fields` are merged into the top-level SearchDetails dict
-    (e.g. {"Product": "hotel"} for tunisiepromo).
 
     Returns the URL-safe base64 string ready to use as a query param.
     """

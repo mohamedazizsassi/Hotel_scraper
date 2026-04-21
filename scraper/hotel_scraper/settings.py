@@ -17,6 +17,10 @@ BOT_NAME = "hotel_scraper"
 SPIDER_MODULES = ["hotel_scraper.spiders"]
 NEWSPIDER_MODULE = "hotel_scraper.spiders"
 
+# Windows: default SelectReactor is capped at 512 file descriptors, which
+# breaks large multi-spider runs. IOCP has no such limit.
+TWISTED_REACTOR = "twisted.internet.iocpreactor.reactor.IOCPReactor"
+
 # ------------------------------------------------------------------ #
 #  Identity                                                            #
 # ------------------------------------------------------------------ #
@@ -46,20 +50,22 @@ AUTOTHROTTLE_DEBUG           = False
 #  Retry logic                                                         #
 # ------------------------------------------------------------------ #
 RETRY_ENABLED   = True
-RETRY_TIMES     = 3                  # retry failed requests 3×
-RETRY_HTTP_CODES = [500, 502, 503, 504, 429]
+RETRY_TIMES     = 7                  # more tolerance for transient network outages
+RETRY_HTTP_CODES = [500, 502, 503, 504, 408, 429]
 
 # ------------------------------------------------------------------ #
 #  Timeouts                                                            #
 # ------------------------------------------------------------------ #
-DOWNLOAD_TIMEOUT = 30
+DOWNLOAD_TIMEOUT = 60
 
 # ------------------------------------------------------------------ #
 #  Item pipelines  (order = priority, lower = earlier)                #
 # ------------------------------------------------------------------ #
 ITEM_PIPELINES = {
+    "hotel_scraper.pipelines.NormalizationPipeline":   100,
     "hotel_scraper.pipelines.DuplicateFilterPipeline": 200,
     "hotel_scraper.pipelines.MongoDBPipeline":         300,
+    "hotel_scraper.pipelines.ParquetExportPipeline":   400,
 }
 
 # ------------------------------------------------------------------ #
@@ -69,15 +75,9 @@ MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 MONGO_DB  = os.getenv("MONGO_DB", "hotel_scraper")
 
 # ------------------------------------------------------------------ #
-#  Feeds (optional JSON export alongside MongoDB)                      #
+#  Parquet export directory                                            #
 # ------------------------------------------------------------------ #
-# Write a CSV file per run (per spider) in output/
-FEEDS = {
-    "output/%(name)s_%(time)s.csv": {
-        "format": "csv",
-        "encoding": "utf-8",
-    },
-}
+PARQUET_OUTPUT_DIR = BASE_DIR / "output"
 
 # ------------------------------------------------------------------ #
 #  Logging                                                             #
