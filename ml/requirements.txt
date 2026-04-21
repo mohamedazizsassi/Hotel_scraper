@@ -1,0 +1,13 @@
+pandas
+pyarrow
+pymongo
+lightgbm
+scikit-learn
+sqlalchemy
+psycopg2-binary
+joblib
+python-dotenv
+matplotlib
+seaborn
+jupyter
+ipykernel
