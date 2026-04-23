@@ -11,7 +11,7 @@ Contract (what downstream modules can assume after ``clean`` returns):
     * ``check_in``   -> datetime64[ns] (naive, calendar day only)
     * ``scraped_at`` -> datetime64[ns, UTC] (timezone-aware)
     * ``days_until_checkin`` -> Int16 in [0, 365]
-    * ``stars_int``  -> Int8 in [1, 7] (never null)
+    * ``stars_int``  -> Int8 in [1, 5] (never null)
     * ``nights``     -> Int16 in {1, 2, 3, 5, 7}
     * ``price``, ``price_per_night`` -> float32, both non-null, positive
     * ``price_per_night`` equals ``price / nights`` within 1 TND
