@@ -43,8 +43,8 @@ MONGO_DATABASE: str = os.environ.get("MONGO_DB", "hotel_scraper")
 MONGO_COLLECTION: str = os.environ.get("MONGO_COLLECTION", "hotel_prices")
 
 POSTGRES_URI: str = os.environ.get(
-    "POSTGRES_URI",
-    "postgresql://localhost/revway",
+    "POSTGRES_URI"
+    
 )
 
 POSTGRES_FEATURES_TABLE: str = "hotel_features"
@@ -78,6 +78,7 @@ BOARDING_CANONICAL_MAP: dict[str, str] = {
 
     "all inclusive":             "AI",
     "all in hard":               "AI",
+    "24h all inclusive":         "AI",
 
     "soft all inclusive":        "AI_SOFT",
     "all inclusive soft drink":  "AI_SOFT",
@@ -115,7 +116,9 @@ ROOM_BASE_PATTERNS: dict[str, str] = {
     "appartement": r"\bappartement\b|\bapart\b",
     "bungalow":    r"\bbungalow\b",
     "villa":       r"\bvilla\b",
-    "chambre":     r"\bchambre\b",
+    # ``room`` is an English synonym for ``chambre`` and appears unprefixed
+    # in scraped room names ("Superior Room", "Deluxe Room", "Swim Up Room").
+    "chambre":     r"\bchambre\b|\broom\b",
 }
 
 ROOM_VIEW_PATTERNS: dict[str, str] = {
@@ -141,7 +144,13 @@ ROOM_OCCUPANCY_PATTERNS: dict[str, str] = {
     "single":    r"\bsingle\b|\bindividuelle\b",
 }
 
-ROOM_BASE_COVERAGE_WARN: float = 0.95
+# Warn-only threshold. ``room_base`` feeds the *tight* peer-group key
+# only; rows with ``<NA>`` base gracefully fall back to the *medium*
+# granularity via ``best_peer_granularity_used``. 0.90 is the empirical
+# floor after adding the English ``room`` synonym — remaining misses are
+# tier+view strings with no type word (e.g. "Standard Vue Jardin") and
+# mojibake artefacts from the scraper encoding bug.
+ROOM_BASE_COVERAGE_WARN: float = 0.90
 
 
 # ---------------------------------------------------------------------------
