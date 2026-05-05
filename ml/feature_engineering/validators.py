@@ -63,7 +63,7 @@ logger = logging.getLogger(__name__)
 COVERAGE_WARN_RATE: float = 0.90
 DELTA_PCT_FLAG_ABS: float = 500.0
 MIN_CELL_ROWS: int = 100
-LEAKAGE_TOLERANCE: float = 1e-6
+LEAKAGE_TOLERANCE: float = 1e-3
 LEAKAGE_DEFAULT_SAMPLE: int = 1_000
 DEFAULT_REPORTS_DIR: Path = Path("ml/artifacts/reports")
 

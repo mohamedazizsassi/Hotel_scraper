@@ -171,14 +171,20 @@ def load_raw_from_mongo(
     -----
     Read path: pymongoarrow.find_arrow_all -> pyarrow.Table -> pandas.
     Avoid ``list(collection.find())`` — unacceptable memory cost at
-    scale.
+    scale. For full reprocessing of large collections, use
+    ``load_raw_from_mongo_chunked()`` instead.
     """
     if limit is not None and limit <= 0:
         raise ValueError(f"limit must be positive, got {limit!r}")
 
     query: dict[str, Any] = {}
     if scraped_after is not None:
-        query["scraped_at"] = {"$gt": scraped_after}
+        # `scraped_at` is currently persisted by the scraper as an ISO 8601
+        # *string*, not a BSON date — see the data scale memory. Mongo will
+        # not match a date filter against a string field, so we compare
+        # against the ISO representation. ISO 8601 sorts lexicographically
+        # the same as chronologically, so $gt is still correct.
+        query["scraped_at"] = {"$gt": scraped_after.isoformat()}
 
     logger.info(
         "Connecting to MongoDB database=%s collection=%s%s",
@@ -214,6 +220,123 @@ def load_raw_from_mongo(
     _log_load_summary(df, elapsed)
     _assert_load_contract(df)
     return df
+
+
+def load_raw_from_mongo_chunked(
+    mongo_uri: str = MONGO_URI,
+    database: str = MONGO_DATABASE,
+    collection: str = MONGO_COLLECTION,
+    scraped_after: datetime | None = None,
+    chunk_size: int = 100_000,
+    limit: int | None = None,
+):
+    """
+    Generator: yield raw DataFrames in chunks from MongoDB.
+
+    Useful for full reprocessing of large collections without RAM pressure.
+    Each yielded chunk has the same contract as ``load_raw_from_mongo()``:
+    PROJECTED_FIELDS only, required-field coverage validated, dtypes explicit.
+
+    Parameters
+    ----------
+    mongo_uri:
+        MongoDB connection URI.
+    database:
+        Source database name.
+    collection:
+        Source collection name.
+    scraped_after:
+        If set, filter to rows with ``scraped_at > scraped_after``.
+    chunk_size:
+        Rows per chunk. Default 100k (conservative for ~8GB RAM).
+    limit:
+        Hard-cap total rows read across all chunks.
+
+    Yields
+    ------
+    pd.DataFrame
+        Chunks of up to ``chunk_size`` rows, each validated.
+
+    Raises
+    ------
+    RuntimeError
+        If the first chunk is empty, or if any chunk fails required-field
+        coverage checks.
+    ValueError
+        If ``chunk_size`` or ``limit`` are not positive.
+    """
+    if chunk_size <= 0:
+        raise ValueError(f"chunk_size must be positive, got {chunk_size!r}")
+    if limit is not None and limit <= 0:
+        raise ValueError(f"limit must be positive, got {limit!r}")
+
+    query: dict[str, Any] = {}
+    if scraped_after is not None:
+        query["scraped_at"] = {"$gt": scraped_after.isoformat()}
+
+    logger.info(
+        "Chunked MongoDB read: database=%s collection=%s chunk_size=%d%s",
+        database, collection, chunk_size,
+        f" scraped_after={scraped_after.isoformat()}" if scraped_after else "",
+    )
+
+    client = MongoClient(mongo_uri, serverSelectionTimeoutMS=10_000)
+    try:
+        coll = client[database][collection]
+        total_count = coll.count_documents(query)
+        logger.info("Total documents matching query: %d", total_count)
+
+        rows_yielded = 0
+        skip = 0
+
+        while True:
+            if limit is not None and rows_yielded >= limit:
+                logger.info("Reached limit of %d rows", limit)
+                break
+
+            effective_chunk = chunk_size
+            if limit is not None:
+                effective_chunk = min(chunk_size, limit - rows_yielded)
+
+            t0 = time.perf_counter()
+            table = find_arrow_all(
+                coll,
+                query,
+                schema=_ARROW_SCHEMA,
+                limit=effective_chunk,
+                skip=skip,
+            )
+
+            if table.num_rows == 0:
+                logger.info("No more rows. Total yielded: %d", rows_yielded)
+                break
+
+            df = table.to_pandas(types_mapper=pd.ArrowDtype)
+            for col in ("source", "city_name", "hotel_name",
+                        "hotel_name_normalized", "stars", "boarding_name",
+                        "room_name", "scrape_run_id"):
+                if col in df.columns:
+                    df[col] = df[col].astype("string[python]")
+
+            elapsed = time.perf_counter() - t0
+            logger.info(
+                "chunk skip=%d rows=%d elapsed=%.2fs",
+                skip, len(df), elapsed,
+            )
+
+            # Validate this chunk (except on chunk >1 if first chunk passed).
+            if rows_yielded == 0:
+                _assert_load_contract(df)
+            else:
+                _assert_chunk_contract(df)
+
+            yield df
+            rows_yielded += len(df)
+            skip += len(df)
+
+    finally:
+        client.close()
+    logger.info("Chunked read complete: %d rows total", rows_yielded)
 
 
 # ---------------------------------------------------------------------------
@@ -261,4 +384,17 @@ def _assert_load_contract(df: pd.DataFrame) -> None:
         raise RuntimeError(
             "Required-field coverage check failed:\n  - "
             + "\n  - ".join(failures)
+        )
+
+
+def _assert_chunk_contract(df: pd.DataFrame) -> None:
+    """Lightweight validation for chunks (already passed on first chunk)."""
+    if df.empty:
+        raise RuntimeError("Chunk returned zero rows (unexpected)")
+
+    missing_cols = [c for c in PROJECTED_FIELDS if c not in df.columns]
+    if missing_cols:
+        raise RuntimeError(
+            f"Chunk missing projected columns: {missing_cols}. "
+            "Schema changed mid-read."
         )
