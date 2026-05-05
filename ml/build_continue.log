@@ -1,6 +1,0 @@
-Traceback (most recent call last):
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "C:\Users\ASUS\Desktop\PFE\revway\ml\feature_engineering\build_features.py", line 59, in <module>
-    import pandas as pd
-ModuleNotFoundError: No module named 'pandas'

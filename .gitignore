@@ -18,6 +18,9 @@ output/
 scraper/logs/
 scraper/_*.log
 
+# Logs
+*.log
+
 # Claude
 CLAUDE.md
 .claude/
