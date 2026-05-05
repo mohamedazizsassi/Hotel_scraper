@@ -20,6 +20,7 @@ scraper/_*.log
 
 # Claude
 CLAUDE.md
+.claude/
 
 # Environment files
 .env

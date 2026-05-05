@@ -1,337 +1,415 @@
 """
-Reads raw scraper data (MongoDB by default, Parquet as fallback),
-engineers features for the ML forecaster/anomaly/recommender models,
-and returns a clean pandas DataFrame ready to be loaded into PostgreSQL.
+Feature pipeline CLI with two paths: single-load (incremental) and chunked (full reprocess).
 
-Run directly:
-    python ml/feature_engineering/build_features.py               # mongo
-    python ml/feature_engineering/build_features.py --source parquet
+**Single-load path** (default, for incremental daily runs):
+    MongoDB raw read (filtered)
+      → assemble_features (clean / supplements / taxonomy / calendar / competitive / demand)
+      → validate_features (optional; failure exits non-zero BEFORE any write)
+      → write_parquet_snapshot (immutable training input)
+      → write_postgres (atomic TRUNCATE+INSERT into hotel_features)
+
+**Chunked path** (--full-reprocess, for safe reprocessing of large collections):
+    For each chunk from MongoDB:
+      → assemble_features
+      → write_postgres (TRUNCATE on first, INSERT only after)
+    Accumulate all chunks:
+      → validate_features (optional)
+      → write_parquet_snapshot
+
+Daily incremental (loads only new rows since last run)::
+
+    python -m feature_engineering.build_features \\
+        --mongo-uri    $MONGO_URI \\
+        --postgres-uri $POSTGRES_URI \\
+        --artifacts-dir ./artifacts \\
+        --incremental
+
+Full reprocess (chunked to avoid RAM pressure, handles all 15M+ rows)::
+
+    python -m feature_engineering.build_features \\
+        --mongo-uri    $MONGO_URI \\
+        --postgres-uri $POSTGRES_URI \\
+        --artifacts-dir ./artifacts \\
+        --full-reprocess [--chunk-size 100000]
+
+Optional flags (both paths)::
+
+    [--since 2026-04-01T00:00:00Z]  # Explicit cutoff (single-load only)
+    [--parquet-only]                 # Skip Postgres write
+    [--postgres-only]                # Skip Parquet write
+    [--validate]                     # Run validators before writes
+    [--overwrite]                    # Allow same-day parquet overwrite
+    [--limit N]                      # Cap total rows (smoke tests only)
+    [--log-level {DEBUG,INFO,WARNING,ERROR}]
+
+Defaults read from ``ml/.env`` via ``config.py``. Per-stage timing is
+logged at INFO; the final summary is printed to stdout regardless of log
+level so an operator running the CLI sees it without parsing logs.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import logging
-import os
+import sys
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
-from dotenv import load_dotenv
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
+
+from . import config
+from .assemble import assemble_features
+from .mongo_loader import load_raw_from_mongo, load_raw_from_mongo_chunked
+from .validators import validate_features
+from .writers import write_parquet_snapshot, write_postgres, write_postgres_append
 
 logger = logging.getLogger(__name__)
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-ML_ROOT = REPO_ROOT / "ml"
-DEFAULT_INPUT_DIR = REPO_ROOT / "scraper" / "output"
-
-load_dotenv(ML_ROOT / ".env")
-
-MONGO_PROJECTION = {
-    "_id": 0,
-    "source": 1, "scraped_at": 1, "scrape_run_id": 1,
-    "check_in": 1, "check_out": 1, "nights": 1, "days_until_checkin": 1,
-    "city_id": 1, "city_name": 1, "adults": 1, "children": 1,
-    "hotel_name": 1, "hotel_name_normalized": 1, "stars": 1,
-    "boarding_name": 1, "room_name": 1, "price": 1, "price_per_night": 1,
-    "sur_demande": 1, "supplements": 1,
-}
-
-SEA_VIEW_KEYWORDS = ("mer", "sea")
-GARDEN_VIEW_KEYWORDS = ("jardin", "garden")
-
-# De-dup key: the business identity of a single scraped room-price observation.
-OBSERVATION_KEYS = [
-    "source",
-    "hotel_name_normalized",
-    "check_in",
-    "nights",
-    "adults",
-    "children",
-    "room_name",
-    "boarding_name",
-]
-
-# Competitor scope: rooms comparable to each other on the same market.
-# Source is included because promohotel vs tunisiepromo show different prices
-# for the same physical hotel (different commission models).
-COMPETITOR_KEYS = [
-    "source",
-    "city_name",
-    "check_in",
-    "nights",
-    "boarding_name",
-    "adults",
-]
-
-# Sea-view premium scope: same hotel, same stay, different view only.
-VIEW_PREMIUM_KEYS = [
-    "source",
-    "hotel_name_normalized",
-    "check_in",
-    "nights",
-    "adults",
-    "boarding_name",
-]
+DEFAULT_ARTIFACTS_DIR: Path = Path(__file__).resolve().parents[1] / "artifacts"
 
 
-def _require_env(name: str) -> str:
-    value = os.getenv(name)
-    if not value:
-        raise RuntimeError(
-            f"Missing required env var {name}. "
-            f"Check ml/.env (template: ml/.env.example)."
-        )
-    return value
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+def _build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Build the feature table from MongoDB and persist to Parquet + Postgres.",
+    )
+    parser.add_argument(
+        "--mongo-uri", default=config.MONGO_URI,
+        help="MongoDB URI. Default: $MONGO_URI from ml/.env.",
+    )
+    parser.add_argument(
+        "--postgres-uri", default=config.POSTGRES_URI,
+        help="PostgreSQL URI. Default: $POSTGRES_URI from ml/.env.",
+    )
+    parser.add_argument(
+        "--artifacts-dir", type=Path, default=DEFAULT_ARTIFACTS_DIR,
+        help="Directory for parquet snapshots and validation reports.",
+    )
+    parser.add_argument(
+        "--incremental", action="store_true",
+        help=(
+            "Load only rows scraped after the latest scraped_at currently in "
+            "the Postgres feature table. Falls back to a full load if the "
+            "table is missing or empty. Mutually exclusive with --since and --full-reprocess."
+        ),
+    )
+    parser.add_argument(
+        "--since", type=_parse_iso8601, default=None,
+        help=(
+            "Explicit scraped_after cutoff (ISO 8601, e.g. "
+            "2026-04-01T00:00:00Z). Overrides --incremental if both passed. "
+            "Mutually exclusive with --full-reprocess."
+        ),
+    )
+    parser.add_argument(
+        "--full-reprocess", action="store_true",
+        help=(
+            "Process all rows from MongoDB in chunks (100k default) to avoid RAM pressure. "
+            "Use this for reprocessing the full collection. Mutually exclusive with "
+            "--incremental and --since."
+        ),
+    )
+    parser.add_argument(
+        "--chunk-size", type=int, default=100_000,
+        help="Rows per chunk during --full-reprocess (default 100k).",
+    )
+    parser.add_argument(
+        "--parquet-only", action="store_true",
+        help="Write the Parquet snapshot but skip the Postgres write.",
+    )
+    parser.add_argument(
+        "--postgres-only", action="store_true",
+        help="Write Postgres but skip the Parquet snapshot.",
+    )
+    parser.add_argument(
+        "--validate", action="store_true",
+        help="Run validators before writing. On failure, exit non-zero with no writes.",
+    )
+    parser.add_argument(
+        "--leakage-sample", type=int, default=None,
+        help=(
+            "Max rows to sample for leakage audit (default 1000). "
+            "Reduce for faster validation on large datasets (e.g. 100 for ~3 min)."
+        ),
+    )
+    parser.add_argument(
+        "--overwrite", action="store_true",
+        help="Allow the parquet snapshot to overwrite an existing same-day file.",
+    )
+    parser.add_argument(
+        "--limit", type=int, default=None,
+        help="Cap the number of raw rows read (smoke tests / EDA only).",
+    )
+    parser.add_argument(
+        "--log-level", default="INFO",
+        choices=("DEBUG", "INFO", "WARNING", "ERROR"),
+        help="Root logger level.",
+    )
+    return parser
 
 
-def _optional_int_env(name: str) -> int | None:
-    raw = os.getenv(name)
-    return int(raw) if raw else None
-
-
-def _load_from_mongo(query: dict | None = None, limit: int = 0) -> pd.DataFrame:
-    """
-    Load raw hotel price records from MongoDB. Connection params come from
-    ml/.env. Pass a Mongo `query` dict to filter (e.g. `{"scraped_at":
-    {"$gte": ...}}`). Pass `limit` > 0 to cap rows (useful for EDA sampling).
-    """
-    from pymongo import MongoClient  # local import: parquet-only callers don't need it
-
-    uri = _require_env("MONGO_URI")
-    db_name = _require_env("MONGO_DB")
-    coll_name = _require_env("MONGO_COLLECTION")
-
-    client_kwargs = {
-        "serverSelectionTimeoutMS": _optional_int_env("MONGO_SERVER_SELECTION_TIMEOUT_MS") or 30_000,
-        "connectTimeoutMS": _optional_int_env("MONGO_CONNECT_TIMEOUT_MS") or 10_000,
-        # 0 = no socket timeout — essential for large full-collection reads
-        "socketTimeoutMS": _optional_int_env("MONGO_SOCKET_TIMEOUT_MS") or 0,
-    }
-
-    client = MongoClient(uri, **client_kwargs)
+def _parse_iso8601(s: str) -> datetime:
+    """argparse type for ``--since``. Returns a tz-aware UTC datetime."""
     try:
-        coll = client[db_name][coll_name]
-        cursor = coll.find(query or {}, projection=MONGO_PROJECTION).batch_size(5_000)
-        if limit > 0:
-            cursor = cursor.limit(limit)
-        df = pd.DataFrame(cursor)
-    finally:
-        client.close()
-
-    logger.info("Loaded %d raw rows from mongo %s.%s", len(df), db_name, coll_name)
-    if df.empty:
-        raise RuntimeError(f"Mongo collection {db_name}.{coll_name} returned zero rows")
-    return df
+        # Accept the trailing-Z form Python<3.11 doesn't parse natively.
+        normalised = s.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(normalised)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"Invalid ISO 8601 timestamp: {s!r}") from exc
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
-def _load_from_parquet(input_dir: Path) -> pd.DataFrame:
-    parquet_files = sorted(input_dir.glob("*.parquet"))
-    csv_files = sorted(input_dir.glob("*.csv"))
-    if not parquet_files and not csv_files:
-        raise FileNotFoundError(f"No .parquet or .csv files in {input_dir}")
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
-    frames: list[pd.DataFrame] = []
-    skipped = 0
-    for path in parquet_files:
-        try:
-            frames.append(pd.read_parquet(path))
-        except Exception as exc:
-            logger.warning("Skipping unreadable parquet %s: %s", path.name, exc)
-            skipped += 1
-    for path in csv_files:
-        try:
-            frames.append(pd.read_csv(path))
-        except Exception as exc:
-            logger.warning("Skipping unreadable csv %s: %s", path.name, exc)
-            skipped += 1
+def main(argv: list[str] | None = None) -> int:
+    args = _build_arg_parser().parse_args(argv)
 
-    if not frames:
-        raise RuntimeError(f"All {skipped} file(s) in {input_dir} were unreadable")
-
-    df = pd.concat(frames, ignore_index=True)
-    logger.info(
-        "Loaded %d raw rows from %d file(s); skipped %d",
-        len(df), len(frames), skipped,
+    logging.basicConfig(
+        level=args.log_level,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
-    return df
 
+    if args.parquet_only and args.postgres_only:
+        logger.error("--parquet-only and --postgres-only are mutually exclusive")
+        return 2
 
-def _parse_supplements(value) -> list[dict]:
-    if value is None or (isinstance(value, float) and pd.isna(value)):
-        return []
-    if isinstance(value, list):
-        return value
-    try:
-        parsed = json.loads(value)
-    except (TypeError, ValueError):
-        return []
-    return parsed if isinstance(parsed, list) else []
+    # Validate mode combinations.
+    mode_count = sum([args.full_reprocess, args.incremental, args.since is not None])
+    if mode_count > 1:
+        logger.error("--full-reprocess, --incremental, and --since are mutually exclusive")
+        return 2
 
-
-def _supplement_features(supplements_raw: pd.Series) -> pd.DataFrame:
-    parsed = supplements_raw.map(_parse_supplements)
-    has_supp = parsed.map(lambda items: len(items) > 0)
-    free_supp = parsed.map(
-        lambda items: any((it.get("price") or 0) == 0 for it in items)
-    )
-    total = parsed.map(
-        lambda items: float(sum((it.get("price") or 0) for it in items))
-    )
-    return pd.DataFrame({
-        "has_supplement": has_supp.astype(bool),
-        "free_supplement": free_supp.astype(bool),
-        "total_supplement_price": total.astype("float32"),
-    })
-
-
-def _calendar_features(check_in: pd.Series) -> pd.DataFrame:
-    dt = pd.to_datetime(check_in, errors="coerce")
-    dow = dt.dt.dayofweek  # Mon=0 … Sun=6
-    return pd.DataFrame({
-        "check_in_date": dt,
-        "day_of_week": dow.astype("Int8"),
-        "month": dt.dt.month.astype("Int8"),
-        # Tunisian hotel weekend = Fri/Sat nights.
-        "weekend_flag": dow.isin([4, 5]).astype("int8"),
-    })
-
-
-def _view_flags(room_name: pd.Series) -> pd.DataFrame:
-    rn = room_name.fillna("").str.lower()
-    sea_pat = "|".join(SEA_VIEW_KEYWORDS)
-    garden_pat = "|".join(GARDEN_VIEW_KEYWORDS)
-    return pd.DataFrame({
-        "is_sea_view": rn.str.contains(sea_pat, regex=True, na=False).astype("int8"),
-        "is_garden_view": rn.str.contains(garden_pat, regex=True, na=False).astype("int8"),
-    })
-
-
-def _coerce_types(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df["stars_int"] = pd.to_numeric(df["stars"], errors="coerce").astype("Int8")
-    df["price"] = pd.to_numeric(df["price"], errors="coerce").astype("float32")
-    df["price_per_night"] = pd.to_numeric(df["price_per_night"], errors="coerce").astype("float32")
-    df["days_until_checkin"] = pd.to_numeric(df["days_until_checkin"], errors="coerce").astype("Int16")
-    return df
-
-
-def _competitor_features(df: pd.DataFrame) -> pd.DataFrame:
-    grp = df.groupby(COMPETITOR_KEYS, dropna=False)["price_per_night"]
-    group_sum = grp.transform("sum")
-    group_cnt = grp.transform("count")
-
-    competitor_sum = group_sum - df["price_per_night"]
-    competitor_cnt = group_cnt - 1
-    denom = competitor_cnt.where(competitor_cnt > 0)
-    competitor_avg = (competitor_sum / denom).astype("float32")
-    delta_pct = ((df["price_per_night"] - competitor_avg) / competitor_avg * 100).astype("float32")
-
-    rank = grp.rank(method="min", ascending=True).astype("Int16")
-
-    return pd.DataFrame({
-        "competitor_avg_price": competitor_avg,
-        "price_delta_pct": delta_pct,
-        "price_rank_in_city": rank,
-        "city_competitor_count": group_cnt.astype("Int16"),
-    }, index=df.index)
-
-
-def _sea_view_premium(df: pd.DataFrame) -> pd.Series:
-    """
-    Premium (TND/night) a hotel charges for sea-view vs garden-view
-    on the same stay (same boarding, nights, adults, check_in).
-    Broadcast to every row in that stay group. NaN when one of the
-    two views is absent for that hotel/stay.
-    """
-    sea_avg = (
-        df.loc[df["is_sea_view"] == 1]
-          .groupby(VIEW_PREMIUM_KEYS)["price_per_night"].mean()
-          .rename("_sea_avg")
-    )
-    garden_avg = (
-        df.loc[df["is_garden_view"] == 1]
-          .groupby(VIEW_PREMIUM_KEYS)["price_per_night"].mean()
-          .rename("_garden_avg")
-    )
-    joined = (
-        df[VIEW_PREMIUM_KEYS]
-        .merge(sea_avg, on=VIEW_PREMIUM_KEYS, how="left")
-        .merge(garden_avg, on=VIEW_PREMIUM_KEYS, how="left")
-    )
-    return (joined["_sea_avg"] - joined["_garden_avg"]).astype("float32").values
-
-
-def build_features(
-    source: str = "mongo",
-    input_dir: Path = DEFAULT_INPUT_DIR,
-    mongo_query: dict | None = None,
-    limit: int = 0,
-) -> pd.DataFrame:
-    if source == "mongo":
-        raw = _load_from_mongo(query=mongo_query, limit=limit)
-    elif source == "parquet":
-        raw = _load_from_parquet(input_dir)
+    # Route: chunked full-reprocess or single-load path.
+    if args.full_reprocess:
+        return _main_chunked(args)
     else:
-        raise ValueError(f"Unknown source {source!r}; expected 'mongo' or 'parquet'")
+        return _main_single_load(args)
 
-    # Drop sur_demande and price-less rows; they poison aggregates.
-    if "sur_demande" in raw.columns:
-        raw = raw[raw["sur_demande"] != True]
-    raw = raw[raw["price_per_night"].notna() & (raw["price_per_night"] > 0)]
 
-    # Keep only the most recent scrape per observation.
-    raw = (
-        raw.sort_values("scraped_at", ascending=False)
-           .drop_duplicates(subset=OBSERVATION_KEYS, keep="first")
-           .reset_index(drop=True)
+def _main_single_load(args: argparse.Namespace) -> int:
+    """Original single-load path (for incremental or small datasets)."""
+    timings: dict[str, float] = {}
+
+    scraped_after = _resolve_scraped_after(args)
+
+    # ---- 1. Load -----------------------------------------------------------
+    t0 = time.perf_counter()
+    raw = load_raw_from_mongo(
+        mongo_uri=args.mongo_uri,
+        scraped_after=scraped_after,
+        limit=args.limit,
     )
+    timings["load"] = time.perf_counter() - t0
 
-    raw = _coerce_types(raw)
+    # ---- 2. Assemble -------------------------------------------------------
+    t0 = time.perf_counter()
+    features = assemble_features(raw)
+    timings["assemble"] = time.perf_counter() - t0
 
-    supp = _supplement_features(raw["supplements"])
-    cal = _calendar_features(raw["check_in"])
-    views = _view_flags(raw["room_name"])
+    # ---- 3. Validate (gate writes) ----------------------------------------
+    if args.validate:
+        t0 = time.perf_counter()
+        validate_kwargs = {"reports_dir": args.artifacts_dir / "reports"}
+        if args.leakage_sample is not None:
+            validate_kwargs["sample_size"] = args.leakage_sample
+        report = validate_features(features, **validate_kwargs)
+        timings["validate"] = time.perf_counter() - t0
+        if not report.passed:
+            logger.error(
+                "Validation FAILED with %d failure(s). No writes performed.",
+                len(report.failures),
+            )
+            for msg in report.failures:
+                logger.error("  - %s", msg)
+            return 1
 
-    df = pd.concat([raw, supp, cal, views], axis=1)
-    df = pd.concat([df, _competitor_features(df)], axis=1)
-    df["sea_view_premium"] = _sea_view_premium(df)
+    # ---- 4. Parquet --------------------------------------------------------
+    parquet_path: Path | None = None
+    if not args.postgres_only:
+        t0 = time.perf_counter()
+        parquet_path = write_parquet_snapshot(
+            features, args.artifacts_dir, overwrite=args.overwrite,
+        )
+        timings["parquet"] = time.perf_counter() - t0
 
-    return df
+    # ---- 5. Postgres -------------------------------------------------------
+    rows_written: int | None = None
+    if not args.parquet_only:
+        t0 = time.perf_counter()
+        rows_written = write_postgres(features, args.postgres_uri)
+        timings["postgres"] = time.perf_counter() - t0
+
+    _print_summary(features, timings, parquet_path, rows_written)
+    return 0
 
 
-def _print_summary(df: pd.DataFrame) -> None:
-    print("=" * 60)
-    print(f"rows:              {len(df):,}")
-    print(f"unique hotels:     {df['hotel_name_normalized'].nunique():,}")
-    if df["check_in_date"].notna().any():
-        lo = df["check_in_date"].min().date()
-        hi = df["check_in_date"].max().date()
-        print(f"check_in range:    {lo} -> {hi}")
-    cities = sorted(df["city_name"].dropna().unique().tolist())
-    sources = sorted(df["source"].dropna().unique().tolist())
-    print(f"cities ({len(cities)}):       {cities}")
-    print(f"sources:           {sources}")
-    print(f"rows w/ comp_avg:  {df['competitor_avg_price'].notna().sum():,}")
-    print(f"rows w/ sea prem:  {df['sea_view_premium'].notna().sum():,}")
-    print("=" * 60)
+def _main_chunked(args: argparse.Namespace) -> int:
+    """Chunked full-reprocess path (--full-reprocess)."""
+    timings: dict[str, float] = {}
+    all_features: list[pd.DataFrame] = []
+    rows_written: int = 0
+    first_chunk = True
+
+    logger.info("Starting chunked full-reprocess (chunk_size=%d)", args.chunk_size)
+
+    t0_total = time.perf_counter()
+
+    try:
+        for chunk_idx, raw_chunk in enumerate(
+            load_raw_from_mongo_chunked(
+                mongo_uri=args.mongo_uri,
+                chunk_size=args.chunk_size,
+                limit=args.limit,
+            )
+        ):
+            logger.info("Processing chunk %d (rows=%d)", chunk_idx + 1, len(raw_chunk))
+
+            t0 = time.perf_counter()
+            features_chunk = assemble_features(raw_chunk)
+            timings[f"assemble_chunk_{chunk_idx}"] = time.perf_counter() - t0
+
+            all_features.append(features_chunk)
+
+            # Write to Postgres per chunk (TRUNCATE on first, INSERT only after).
+            if not args.parquet_only:
+                t0 = time.perf_counter()
+                if first_chunk:
+                    rows_written += write_postgres(
+                        features_chunk, args.postgres_uri,
+                    )
+                    first_chunk = False
+                else:
+                    rows_written += write_postgres_append(
+                        features_chunk, args.postgres_uri,
+                    )
+                timings[f"postgres_chunk_{chunk_idx}"] = time.perf_counter() - t0
+
+    except Exception as e:
+        logger.error("Chunked processing failed: %s", e, exc_info=True)
+        return 1
+
+    if not all_features:
+        logger.error("No chunks were processed")
+        return 1
+
+    # Accumulate all chunks for final Parquet snapshot.
+    features = pd.concat(all_features, ignore_index=True)
+    logger.info("Accumulated %d rows across %d chunks", len(features), len(all_features))
+
+    # Validate final result (optional).
+    if args.validate:
+        t0 = time.perf_counter()
+        validate_kwargs = {"reports_dir": args.artifacts_dir / "reports"}
+        if args.leakage_sample is not None:
+            validate_kwargs["sample_size"] = args.leakage_sample
+        report = validate_features(features, **validate_kwargs)
+        timings["validate"] = time.perf_counter() - t0
+        if not report.passed:
+            logger.error(
+                "Validation FAILED with %d failure(s). Postgres already written; "
+                "no parquet write.",
+                len(report.failures),
+            )
+            for msg in report.failures:
+                logger.error("  - %s", msg)
+            return 1
+
+    # Write final Parquet snapshot.
+    parquet_path: Path | None = None
+    if not args.postgres_only:
+        t0 = time.perf_counter()
+        parquet_path = write_parquet_snapshot(
+            features, args.artifacts_dir, overwrite=args.overwrite,
+        )
+        timings["parquet"] = time.perf_counter() - t0
+
+    timings["total"] = time.perf_counter() - t0_total
+    _print_summary(features, timings, parquet_path, rows_written)
+    return 0
+
+
+def _resolve_scraped_after(args: argparse.Namespace) -> datetime | None:
+    """``--since`` wins; otherwise ``--incremental`` queries Postgres."""
+    if args.since is not None:
+        logger.info("Using explicit --since cutoff: %s", args.since.isoformat())
+        return args.since
+    if args.incremental:
+        cutoff = _latest_scraped_at(args.postgres_uri)
+        if cutoff is None:
+            logger.info("Incremental requested but Postgres table is empty/missing — full load.")
+            return None
+        logger.info("Incremental cutoff from Postgres max(scraped_at): %s", cutoff.isoformat())
+        return cutoff
+    return None
+
+
+def _latest_scraped_at(postgres_uri: str) -> datetime | None:
+    """Return the largest ``scraped_at`` already in the feature table, or None."""
+    engine = create_engine(postgres_uri)
+    try:
+        with engine.connect() as conn:
+            row = conn.execute(
+                text(f'SELECT MAX(scraped_at) FROM "{config.POSTGRES_FEATURES_TABLE}"')
+            ).scalar_one_or_none()
+    except SQLAlchemyError as exc:
+        logger.warning("Could not read incremental cutoff from Postgres: %s", exc)
+        return None
+    finally:
+        engine.dispose()
+
+    if row is None:
+        return None
+    if isinstance(row, datetime):
+        return row if row.tzinfo else row.replace(tzinfo=timezone.utc)
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Summary
+# ---------------------------------------------------------------------------
+
+def _print_summary(
+    df: pd.DataFrame,
+    timings: dict[str, float],
+    parquet_path: Path | None,
+    rows_written: int | None,
+) -> None:
+    bar = "=" * 64
+    print(bar)
+    print(f"rows               : {len(df):,}")
+    print(f"columns            : {df.shape[1]}")
+    if "hotel_name_normalized" in df.columns:
+        print(f"unique hotels      : {df['hotel_name_normalized'].nunique():,}")
+    if "city_name" in df.columns:
+        print(f"unique cities      : {df['city_name'].nunique()}")
+    if "source" in df.columns:
+        sources = sorted(df["source"].dropna().unique().tolist())
+        print(f"sources            : {sources}")
+    if "check_in" in df.columns and df["check_in"].notna().any():
+        lo = pd.to_datetime(df["check_in"]).min().date()
+        hi = pd.to_datetime(df["check_in"]).max().date()
+        print(f"check_in range     : {lo} -> {hi}")
+    print("-" * 64)
+    print("stage timings (s):")
+    for name, sec in timings.items():
+        print(f"  {name:<10} {sec:>8.2f}")
+    print("-" * 64)
+    if parquet_path is not None:
+        print(f"parquet snapshot   : {parquet_path}")
+    if rows_written is not None:
+        print(f"postgres rows      : {rows_written:,} -> {config.POSTGRES_FEATURES_TABLE}")
+    print(bar)
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s",
-    )
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--source", choices=("mongo", "parquet"), default="mongo",
-        help="Where to load raw scraper data from (default: mongo)",
-    )
-    parser.add_argument(
-        "--input-dir", type=Path, default=DEFAULT_INPUT_DIR,
-        help="Only used with --source parquet",
-    )
-    args = parser.parse_args()
-
-    features = build_features(source=args.source, input_dir=args.input_dir)
-    _print_summary(features)
+    sys.exit(main())
