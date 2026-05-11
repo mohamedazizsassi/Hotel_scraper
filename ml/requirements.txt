@@ -11,3 +11,5 @@ matplotlib
 seaborn
 jupyter
 ipykernel
+statsmodels
+pymongoarrow
