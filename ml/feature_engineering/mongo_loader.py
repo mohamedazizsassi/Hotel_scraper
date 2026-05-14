@@ -131,6 +131,7 @@ def load_raw_from_mongo(
     database: str = MONGO_DATABASE,
     collection: str = MONGO_COLLECTION,
     scraped_after: datetime | None = None,
+    scraped_before: datetime | None = None,
     limit: int | None = None,
 ) -> pd.DataFrame:
     """
@@ -148,6 +149,12 @@ def load_raw_from_mongo(
         If set, only documents with ``scraped_at > scraped_after`` are
         read (for incremental pipeline runs). Naive datetimes are
         assumed UTC.
+    scraped_before:
+        If set, only documents with ``scraped_at < scraped_before`` are
+        read. Combined with ``scraped_after`` this gives a half-open
+        ``[after, before)`` range — useful for per-scrape-date
+        reprocessing where each date's rows must be loaded as one
+        self-contained chunk.
     limit:
         If set, hard-cap the number of rows read (useful for EDA /
         smoke tests). Must be > 0.
@@ -178,13 +185,18 @@ def load_raw_from_mongo(
         raise ValueError(f"limit must be positive, got {limit!r}")
 
     query: dict[str, Any] = {}
+    scraped_at_filter: dict[str, str] = {}
     if scraped_after is not None:
         # `scraped_at` is currently persisted by the scraper as an ISO 8601
         # *string*, not a BSON date — see the data scale memory. Mongo will
         # not match a date filter against a string field, so we compare
         # against the ISO representation. ISO 8601 sorts lexicographically
-        # the same as chronologically, so $gt is still correct.
-        query["scraped_at"] = {"$gt": scraped_after.isoformat()}
+        # the same as chronologically, so $gt / $lt are still correct.
+        scraped_at_filter["$gt"] = scraped_after.isoformat()
+    if scraped_before is not None:
+        scraped_at_filter["$lt"] = scraped_before.isoformat()
+    if scraped_at_filter:
+        query["scraped_at"] = scraped_at_filter
 
     logger.info(
         "Connecting to MongoDB database=%s collection=%s%s",

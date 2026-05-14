@@ -50,14 +50,22 @@ logger = logging.getLogger(__name__)
 # Peer-group definitions — order is significant: from tightest to loosest.
 # ``best_peer_granularity_used`` walks this list and stops at the first
 # granularity with peer_count >= MIN_PEERS_FOR_BEST.
+#
+# ``scrape_date`` is the first key in every granularity. This is the
+# temporal-leakage fix from the 2026-05-14 audit: peer aggregates pool
+# only rows captured on the same scrape day, so a row scraped on day D
+# cannot see peer prices from day D+1, D+2, etc. The fix preserves
+# every (offer × scrape_run) observation as a separate training row —
+# unlike a dedup-to-most-recent approach, the per-offer booking-window
+# trajectory survives.
 # ---------------------------------------------------------------------------
 
 PEER_GROUP_KEYS: dict[str, tuple[str, ...]] = {
-    "tight":  ("city_name", "stars_int", "boarding_canonical",
+    "tight":  ("scrape_date", "city_name", "stars_int", "boarding_canonical",
                "room_base", "room_view", "nights", "adults", "check_in"),
-    "medium": ("city_name", "stars_int", "boarding_canonical",
+    "medium": ("scrape_date", "city_name", "stars_int", "boarding_canonical",
                "nights", "adults", "check_in"),
-    "loose":  ("city_name", "stars_int", "nights", "check_in"),
+    "loose":  ("scrape_date", "city_name", "stars_int", "nights", "check_in"),
 }
 
 GRANULARITIES: tuple[str, ...] = ("tight", "medium", "loose")

@@ -37,6 +37,8 @@ def _row(*, hotel: str, price: float, sur: bool = False, **overrides) -> dict:
         "nights": 3,
         "adults": 2,
         "check_in": pd.Timestamp("2026-07-01"),
+        # scrape_date is part of PEER_GROUP_KEYS and SUR_DEMANDE_SLICES.
+        "scrape_date": pd.Timestamp("2026-05-14"),
         "price_per_night": float(price),
         "days_until_checkin": 30,
         "sur_demande": sur,

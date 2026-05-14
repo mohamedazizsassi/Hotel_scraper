@@ -35,18 +35,28 @@ from .calendar_features import add_calendar_features
 from .cleaners import clean
 from .competitive_features import add_competitive_features
 from .demand_features import add_demand_features
+from .scrape_date import add_scrape_date
 from .supplement_expansion import expand_supplements
 from .taxonomy import canonicalize_boarding, parse_room
 
 logger = logging.getLogger(__name__)
 
 
-# Order matters. supplement_expansion MUST run before parse_room so
-# synthetic variant rows carry view information in `room_name` when the
-# regex scan happens. Competitive runs before demand by convention only;
-# they are independent.
+# Order matters.
+# * add_scrape_date runs immediately after clean. The derived column is
+#   then included in PEER_GROUP_KEYS (competitive_features) and in
+#   SUR_DEMANDE_SLICES / ACTIVITY_COUNT_KEYS (demand_features), which
+#   scopes every aggregate to within a single scrape day. This kills the
+#   temporal leakage diagnosed on 2026-05-14 (rows from one scrape day
+#   no longer pull peer prices from later scrape days) while preserving
+#   every (offer × scrape_run) observation as an independent training
+#   row — i.e. the within-offer booking-window trajectory is kept.
+# * supplement_expansion MUST run before parse_room so synthetic variant
+#   rows carry view information in `room_name` when the regex scan happens.
+# * Competitive runs before demand by convention only; they are independent.
 _STAGES: list[tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]] = [
     ("clean", clean),
+    ("add_scrape_date", add_scrape_date),
     ("supplement_expansion", expand_supplements),
     ("canonicalize_boarding", canonicalize_boarding),
     ("parse_room", parse_room),

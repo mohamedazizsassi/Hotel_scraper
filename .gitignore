@@ -21,6 +21,12 @@ scraper/_*.log
 # Logs
 *.log
 
+# Reports
+Pfe Report/
+
+# Personal notes
+Files for me/
+
 # Claude
 CLAUDE.md
 .claude/

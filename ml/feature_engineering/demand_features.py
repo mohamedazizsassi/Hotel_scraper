@@ -39,18 +39,24 @@ logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Slice definitions — order does not matter here, each rate is independent.
+#
+# ``scrape_date`` is part of every slice for the same reason it is part
+# of ``competitive_features.PEER_GROUP_KEYS``: aggregates must pool only
+# observations from the same scrape day, otherwise a row scraped on day
+# D sees sur_demande flags from day D+k and the rate silently encodes
+# future market state. See the 2026-05-14 leakage audit for context.
 # ---------------------------------------------------------------------------
 
 SUR_DEMANDE_SLICES: dict[str, tuple[str, ...]] = {
     "sur_demande_rate_city_checkin":
-        ("city_name", "check_in"),
+        ("scrape_date", "city_name", "check_in"),
     "sur_demande_rate_city_stars_checkin":
-        ("city_name", "stars_int", "check_in"),
+        ("scrape_date", "city_name", "stars_int", "check_in"),
     "sur_demande_rate_city_stars_boarding_checkin":
-        ("city_name", "stars_int", "boarding_canonical", "check_in"),
+        ("scrape_date", "city_name", "stars_int", "boarding_canonical", "check_in"),
 }
 
-ACTIVITY_COUNT_KEYS: tuple[str, ...] = ("city_name", "check_in")
+ACTIVITY_COUNT_KEYS: tuple[str, ...] = ("scrape_date", "city_name", "check_in")
 ACTIVITY_COUNT_COL: str = "city_activity_count_checkin"
 
 
