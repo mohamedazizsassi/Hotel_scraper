@@ -23,6 +23,10 @@ def _row(*, hotel: str, sur: bool, **overrides) -> dict:
         "stars_int": 4,
         "boarding_canonical": "HDP",
         "check_in": pd.Timestamp("2026-07-01"),
+        # scrape_date is part of SUR_DEMANDE_SLICES and
+        # ACTIVITY_COUNT_KEYS; default all rows to one day so the
+        # existing single-slice assertions still hold.
+        "scrape_date": pd.Timestamp("2026-05-14"),
         "sur_demande": sur,
     }
     base.update(overrides)

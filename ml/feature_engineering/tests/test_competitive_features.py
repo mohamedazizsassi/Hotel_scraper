@@ -35,6 +35,9 @@ def _row(*, hotel: str, price: float, **overrides) -> dict:
         "nights": 3,
         "adults": 2,
         "check_in": pd.Timestamp("2026-07-01"),
+        # scrape_date is part of PEER_GROUP_KEYS; default all rows to one
+        # day so the existing single-slice assertions still hold.
+        "scrape_date": pd.Timestamp("2026-05-14"),
         "price_per_night": float(price),
     }
     base.update(overrides)
