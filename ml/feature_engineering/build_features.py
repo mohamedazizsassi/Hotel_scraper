@@ -72,9 +72,11 @@ from .writers import (
     PARQUET_FILENAME_TEMPLATE,
     open_parquet_stream,
     swap_table_atomic,
+    write_calendar_dim,
     write_parquet_snapshot,
     write_postgres,
     write_postgres_append,
+    write_segment_dim,
 )
 
 logger = logging.getLogger(__name__)
@@ -253,10 +255,16 @@ def _main_single_load(args: argparse.Namespace) -> int:
         )
         timings["parquet"] = time.perf_counter() - t0
 
-    # ---- 5. Postgres -------------------------------------------------------
+    # ---- 5. Dim tables (calendar_dim, segment_dim) + Postgres -------------
     rows_written: int | None = None
     if not args.parquet_only:
         t0 = time.perf_counter()
+        _dim_engine = create_engine(args.postgres_uri)
+        try:
+            write_calendar_dim(_dim_engine, features)
+            write_segment_dim(_dim_engine, features)
+        finally:
+            _dim_engine.dispose()
         rows_written = write_postgres(features, args.postgres_uri)
         timings["postgres"] = time.perf_counter() - t0
 
@@ -311,6 +319,7 @@ def _main_chunked(args: argparse.Namespace) -> int:
     parquet_stream = None
     parquet_path: Path | None = None
     day_reports: list = []  # list[ValidationReport]
+    dim_frames: list[pd.DataFrame] = []  # accumulate dim-table rows across days
 
     try:
         for day_idx, day_str in enumerate(scrape_days):
@@ -381,6 +390,13 @@ def _main_chunked(args: argparse.Namespace) -> int:
                 timings[f"parquet_day_{day_str}"] = time.perf_counter() - t0
 
             cumulative_rows += len(features_day)
+            # Capture the dim-relevant columns before freeing the per-day frame.
+            # The two dim tables need only ~18 cols combined; O(per-day unique dates)
+            # in practice, so the accumulated list stays tiny across all days.
+            if not args.parquet_only:
+                from .model_feature_sets import CALENDAR_DIM_COLUMNS, SEGMENT_DIM_COLUMNS
+                _dim_cols = list(dict.fromkeys(list(CALENDAR_DIM_COLUMNS) + list(SEGMENT_DIM_COLUMNS)))
+                dim_frames.append(features_day[_dim_cols].copy())
             # Free per-day frames promptly so memory footprint stays at
             # ~one day even on a 4 GB host.
             del features_day, raw_day
@@ -428,6 +444,20 @@ def _main_chunked(args: argparse.Namespace) -> int:
             final_table=config.POSTGRES_FEATURES_TABLE,
         )
         timings["postgres_swap"] = time.perf_counter() - t0
+
+        # Write dim tables after promotion so they are consistent with
+        # the live hotel_features. dim_frames is the union of calendar
+        # and segment columns accumulated across all processed days.
+        if dim_frames:
+            t0 = time.perf_counter()
+            dim_all = pd.concat(dim_frames, ignore_index=True)
+            _dim_engine = create_engine(args.postgres_uri)
+            try:
+                write_calendar_dim(_dim_engine, dim_all)
+                write_segment_dim(_dim_engine, dim_all)
+            finally:
+                _dim_engine.dispose()
+            timings["dim_tables"] = time.perf_counter() - t0
 
     timings["total"] = time.perf_counter() - t0_total
     _print_summary_streaming(timings, parquet_path, rows_written, cumulative_rows)

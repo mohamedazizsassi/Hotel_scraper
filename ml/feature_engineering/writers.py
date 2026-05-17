@@ -49,6 +49,11 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Engine
 
 from .config import POSTGRES_FEATURES_TABLE
+from .model_feature_sets import (
+    CALENDAR_DIM_COLUMNS,
+    POSTGRES_SERVING_COLUMNS,
+    SEGMENT_DIM_COLUMNS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +63,8 @@ PARQUET_FILENAME_TEMPLATE: str = "features_{date}.parquet"
 # PostgreSQL's extended-protocol bind-parameter cap is 65 535 (uint16).
 # pandas' to_sql(method="multi") issues one INSERT with
 # chunksize * ncols placeholders, so chunksize * ncols must stay < 65 535.
-# The assembled feature frame is ~77 columns as of 2026-05-17. 500 leaves
-# ~24x headroom (500 * 77 ~= 38 500) and survives moderate feature growth.
+# write_postgres projects to POSTGRES_SERVING_COLUMNS (~52 cols) before
+# INSERT, so chunksize * 52 ~= 26 000 — well within the cap.
 # COPY-via-psycopg would lift the cap entirely; deferred until profiling
 # shows multi-INSERT is the actual bottleneck.
 DEFAULT_INSERT_CHUNKSIZE: int = 500
@@ -232,9 +237,10 @@ def write_postgres(
     if df.empty:
         raise ValueError("write_postgres: refusing to truncate-and-insert an empty frame")
 
+    serving = df[list(POSTGRES_SERVING_COLUMNS)]
     engine = create_engine(connection_string)
     try:
-        return _atomic_truncate_insert(df, engine, table_name, chunksize)
+        return _atomic_truncate_insert(serving, engine, table_name, chunksize)
     finally:
         engine.dispose()
 
@@ -271,9 +277,10 @@ def write_postgres_append(
     if df.empty:
         raise ValueError("write_postgres_append: refusing to insert an empty frame")
 
+    serving = df[list(POSTGRES_SERVING_COLUMNS)]
     engine = create_engine(connection_string)
     try:
-        return _atomic_insert_only(df, engine, table_name, chunksize)
+        return _atomic_insert_only(serving, engine, table_name, chunksize)
     finally:
         engine.dispose()
 
@@ -461,3 +468,108 @@ def _first_non_null(s: pd.Series) -> Any:
             continue
         return v
     return None
+
+
+# ---------------------------------------------------------------------------
+# Dim-table writers
+# ---------------------------------------------------------------------------
+
+def write_calendar_dim(
+    engine: Engine,
+    df: pd.DataFrame,
+    *,
+    table_name: str = "calendar_dim",
+) -> int:
+    """
+    Replace ``calendar_dim`` with one row per distinct ``check_in`` date.
+
+    Extracts CALENDAR_DIM_COLUMNS from ``df``, deduplicates on ``check_in``,
+    then TRUNCATE + INSERT inside a single transaction.  Idempotent: running
+    twice on the same data produces the same table state.
+
+    Parameters
+    ----------
+    engine:
+        Connected SQLAlchemy engine (caller owns lifecycle / dispose).
+    df:
+        Assembled feature frame (must contain all CALENDAR_DIM_COLUMNS).
+    table_name:
+        Target table name (default ``"calendar_dim"``).
+
+    Returns
+    -------
+    int
+        Number of rows inserted.
+    """
+    dim = df[list(CALENDAR_DIM_COLUMNS)].drop_duplicates(subset=["check_in"])
+    if dim.empty:
+        logger.warning("write_calendar_dim: no rows to write")
+        return 0
+
+    metadata = MetaData()
+    table = _build_table(dim, table_name, metadata)
+
+    with engine.begin() as conn:
+        conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
+        table.create(conn)
+        dim.to_sql(
+            table_name,
+            con=conn,
+            if_exists="append",
+            index=False,
+            chunksize=DEFAULT_INSERT_CHUNKSIZE,
+            method="multi",
+        )
+
+    logger.info("wrote calendar_dim rows=%d table=%s", len(dim), table_name)
+    return len(dim)
+
+
+def write_segment_dim(
+    engine: Engine,
+    df: pd.DataFrame,
+    *,
+    table_name: str = "segment_dim",
+) -> int:
+    """
+    Replace ``segment_dim`` with one row per distinct ``(city_name, stars_int)`` pair.
+
+    Extracts SEGMENT_DIM_COLUMNS from ``df``, deduplicates on the composite
+    key, then TRUNCATE + INSERT inside a single transaction.  Idempotent.
+
+    Parameters
+    ----------
+    engine:
+        Connected SQLAlchemy engine (caller owns lifecycle / dispose).
+    df:
+        Assembled feature frame (must contain all SEGMENT_DIM_COLUMNS).
+    table_name:
+        Target table name (default ``"segment_dim"``).
+
+    Returns
+    -------
+    int
+        Number of rows inserted.
+    """
+    dim = df[list(SEGMENT_DIM_COLUMNS)].drop_duplicates(subset=["city_name", "stars_int"])
+    if dim.empty:
+        logger.warning("write_segment_dim: no rows to write")
+        return 0
+
+    metadata = MetaData()
+    table = _build_table(dim, table_name, metadata)
+
+    with engine.begin() as conn:
+        conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
+        table.create(conn)
+        dim.to_sql(
+            table_name,
+            con=conn,
+            if_exists="append",
+            index=False,
+            chunksize=DEFAULT_INSERT_CHUNKSIZE,
+            method="multi",
+        )
+
+    logger.info("wrote segment_dim rows=%d table=%s", len(dim), table_name)
+    return len(dim)

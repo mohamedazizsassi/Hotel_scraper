@@ -196,3 +196,160 @@ def test_infer_sql_type_datetime_with_tz():
     sql_type = writers._infer_sql_type(s)
     assert isinstance(sql_type, DateTime)
     assert sql_type.timezone is True
+
+
+# ---------------------------------------------------------------------------
+# Postgres projection — write_postgres inserts only POSTGRES_SERVING_COLUMNS
+# ---------------------------------------------------------------------------
+
+def _full_toy_frame() -> pd.DataFrame:
+    """
+    Minimal frame that contains all POSTGRES_SERVING_COLUMNS plus a few
+    extra columns that should NOT be inserted (e.g. calendar / segment dims).
+    """
+    from feature_engineering.model_feature_sets import (
+        POSTGRES_SERVING_COLUMNS,
+        CALENDAR_FEATURES,
+        SEGMENT_FEATURES,
+    )
+    data: dict = {}
+    # Add all serving columns with dummy scalar values.
+    for col in POSTGRES_SERVING_COLUMNS:
+        data[col] = ["dummy"]
+    # Add extra columns that must be excluded from hotel_features.
+    for col in list(CALENDAR_FEATURES) + list(SEGMENT_FEATURES) + ["stars", "boarding_name", "room_name"]:
+        if col not in data:
+            data[col] = ["extra"]
+    return pd.DataFrame(data)
+
+
+def test_write_postgres_projects_to_serving_columns(monkeypatch):
+    """write_postgres must pass only POSTGRES_SERVING_COLUMNS to the INSERT."""
+    from feature_engineering.model_feature_sets import POSTGRES_SERVING_COLUMNS
+
+    captured: dict = {}
+
+    def fake_truncate_insert(df, engine, table_name, chunksize):
+        captured["cols"] = list(df.columns)
+        return len(df)
+
+    class _FakeEngine:
+        def dispose(self): pass
+
+    monkeypatch.setattr(writers, "_atomic_truncate_insert", fake_truncate_insert)
+    monkeypatch.setattr(writers, "create_engine", lambda uri: _FakeEngine())
+
+    df = _full_toy_frame()
+    writers.write_postgres(df, "postgresql://unused/unused")
+
+    assert set(captured["cols"]) == set(POSTGRES_SERVING_COLUMNS), (
+        f"Unexpected columns sent to Postgres: "
+        f"{set(captured['cols']).symmetric_difference(set(POSTGRES_SERVING_COLUMNS))}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Dim writers — round-trip via SQLite in-memory
+# ---------------------------------------------------------------------------
+
+def _dim_toy_frame() -> pd.DataFrame:
+    """
+    Toy assembled frame containing all CALENDAR_DIM_COLUMNS and
+    SEGMENT_DIM_COLUMNS, with two distinct check_in dates and two
+    (city_name, stars_int) pairs to verify deduplication.
+    """
+    from feature_engineering.model_feature_sets import (
+        CALENDAR_DIM_COLUMNS,
+        SEGMENT_DIM_COLUMNS,
+    )
+    n = 4
+    data: dict = {}
+
+    # check_in: two distinct values (repeated twice each)
+    data["check_in"] = pd.to_datetime(
+        ["2026-07-01", "2026-07-01", "2026-07-15", "2026-07-15"]
+    )
+    # stars_int: two distinct values
+    data["stars_int"] = pd.array([3, 4, 3, 4], dtype="Int8")
+    # city_name: two distinct values matched to stars_int
+    data["city_name"] = ["hammamet", "djerba", "hammamet", "djerba"]
+
+    # Calendar columns with dummy integer / boolean values
+    for col in CALENDAR_DIM_COLUMNS:
+        if col == "check_in":
+            continue
+        if col.startswith("is_") or col.startswith("days_to"):
+            data[col] = [False] * n
+        else:
+            data[col] = pd.array([1] * n, dtype="Int8")
+
+    # Segment columns with dummy string values
+    for col in SEGMENT_DIM_COLUMNS:
+        if col in ("check_in", "stars_int", "city_name"):
+            continue
+        data[col] = ["sahel_3"] * n
+
+    return pd.DataFrame(data)
+
+
+def _sqlite_engine():
+    from sqlalchemy import create_engine as _ce
+    return _ce("sqlite:///:memory:")
+
+
+def test_write_calendar_dim_deduplicates_by_check_in():
+    """After writing, calendar_dim should have one row per distinct check_in."""
+    import sqlalchemy as sa
+
+    engine = _sqlite_engine()
+    df = _dim_toy_frame()
+    n_written = writers.write_calendar_dim(engine, df)
+
+    # Two distinct check_in dates → 2 rows
+    assert n_written == 2
+    with engine.connect() as conn:
+        rows = conn.execute(sa.text("SELECT COUNT(*) FROM calendar_dim")).scalar()
+    assert rows == 2
+
+
+def test_write_calendar_dim_is_idempotent():
+    """Calling write_calendar_dim twice produces the same row count."""
+    import sqlalchemy as sa
+
+    engine = _sqlite_engine()
+    df = _dim_toy_frame()
+    writers.write_calendar_dim(engine, df)
+    writers.write_calendar_dim(engine, df)
+
+    with engine.connect() as conn:
+        rows = conn.execute(sa.text("SELECT COUNT(*) FROM calendar_dim")).scalar()
+    assert rows == 2
+
+
+def test_write_segment_dim_deduplicates_by_city_stars():
+    """After writing, segment_dim should have one row per (city_name, stars_int) pair."""
+    import sqlalchemy as sa
+
+    engine = _sqlite_engine()
+    df = _dim_toy_frame()
+    n_written = writers.write_segment_dim(engine, df)
+
+    # Two distinct (city_name, stars_int) pairs → 2 rows
+    assert n_written == 2
+    with engine.connect() as conn:
+        rows = conn.execute(sa.text("SELECT COUNT(*) FROM segment_dim")).scalar()
+    assert rows == 2
+
+
+def test_write_segment_dim_is_idempotent():
+    """Calling write_segment_dim twice produces the same row count."""
+    import sqlalchemy as sa
+
+    engine = _sqlite_engine()
+    df = _dim_toy_frame()
+    writers.write_segment_dim(engine, df)
+    writers.write_segment_dim(engine, df)
+
+    with engine.connect() as conn:
+        rows = conn.execute(sa.text("SELECT COUNT(*) FROM segment_dim")).scalar()
+    assert rows == 2
