@@ -21,7 +21,7 @@ Checks (in order):
 
 2. **Range checks** — every row must satisfy
    ``days_until_checkin ∈ [0, 365]`` and
-   ``price_per_night ∈ [30, 20000]``. ``|delta_vs_peer_*_median_pct| >
+   ``price_per_night ∈ [30, 20000]``. ``|observed_delta_vs_peer_*_median_pct| >
    500`` rows are flagged as warnings (not failures — extreme spreads
    are possible in this market).
 
@@ -30,7 +30,7 @@ Checks (in order):
    ``boarding_canonical == "UNKNOWN"`` above
    ``UNKNOWN_BOARDING_FAIL_RATE`` is a failure.
 
-4. **Distributions** — log percentiles of the `delta_vs_peer_*` columns
+4. **Distributions** — log percentiles of the `observed_delta_vs_peer_*` columns
    and (boarding_canonical, stars_int) cell counts; flag cells with
    fewer than ``MIN_CELL_ROWS`` as warnings (sparse modelling slices).
 """
@@ -97,6 +97,45 @@ class ValidationReport:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(self.to_dict(), indent=2, default=str))
         return path
+
+
+def merge_reports(reports: list[ValidationReport]) -> ValidationReport:
+    """
+    Combine per-day ValidationReports into one aggregate report.
+
+    Used by the streaming feature build (build_features.py) to produce
+    a single end-of-run report from per-day validations. Failures and
+    warnings are concatenated; ``leakage_mismatches`` and
+    ``leakage_sample_size`` are summed; ``coverage`` per column is the
+    worst-case (min) across days, which is the conservative choice for
+    flagging columns with intermittent missing values.
+
+    The merged report's timestamp is set to merge time, not any day's
+    timestamp.
+
+    Raises
+    ------
+    ValueError
+        If ``reports`` is empty.
+    """
+    if not reports:
+        raise ValueError("merge_reports: no reports to merge")
+
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    merged = ValidationReport(
+        timestamp=ts,
+        n_rows=sum(r.n_rows for r in reports),
+        n_columns=reports[0].n_columns,
+    )
+    for r in reports:
+        merged.failures.extend(r.failures)
+        merged.warnings.extend(r.warnings)
+        merged.leakage_sample_size += r.leakage_sample_size
+        merged.leakage_mismatches += r.leakage_mismatches
+    all_cols: set[str] = set().union(*(r.coverage.keys() for r in reports))
+    for col in all_cols:
+        merged.coverage[col] = min(r.coverage.get(col, 1.0) for r in reports)
+    return merged
 
 
 # ---------------------------------------------------------------------------
@@ -207,7 +246,7 @@ def _check_unknown_boarding(df: pd.DataFrame, report: ValidationReport) -> None:
 
 def _check_delta_pct_outliers(df: pd.DataFrame, report: ValidationReport) -> None:
     for g in GRANULARITIES:
-        col = f"delta_vs_peer_{g}_median_pct"
+        col = f"observed_delta_vs_peer_{g}_median_pct"
         if col not in df.columns:
             continue
         s = pd.to_numeric(df[col], errors="coerce")

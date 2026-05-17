@@ -172,9 +172,16 @@ def _coerce_stars(df: pd.DataFrame) -> pd.DataFrame:
 
 def _impute_stars_per_hotel(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Fill missing stars_int with the hotel's modal value. Drop rows where
-    the hotel has no observed mode (i.e. every observation of that hotel
-    is missing).
+    Fill missing stars_int in two passes:
+
+    1. **Per-hotel modal value** -- the strict choice; ground truth when
+       the hotel has ANY stars observation anywhere in the frame.
+    2. **Per-city modal value** -- fallback for hotels whose every
+       observation is missing stars (sparse-metadata hotels on
+       tunisiepromo). Tunisian cities have a dominant star tier, so the
+       city mode is a defensible default that beats dropping the row.
+
+    Drop rows that still have no stars_int after both passes.
     """
     na_before = df["stars_int"].isna().sum()
     if na_before == 0:
@@ -186,13 +193,25 @@ def _impute_stars_per_hotel(df: pd.DataFrame) -> pd.DataFrame:
 
     hotel_mode = df.groupby("hotel_name_normalized", dropna=False)["stars_int"].transform(_mode)
     df["stars_int"] = df["stars_int"].fillna(hotel_mode)
+    na_after_hotel = df["stars_int"].isna().sum()
+    logger.info("stars_int imputed %d rows from hotel mode", na_before - na_after_hotel)
 
-    na_after = df["stars_int"].isna().sum()
-    imputed = na_before - na_after
-    logger.info("stars_int imputed %d rows from hotel mode", imputed)
+    if na_after_hotel > 0 and "city_name" in df.columns:
+        city_mode = df.groupby("city_name", dropna=False)["stars_int"].transform(_mode)
+        df["stars_int"] = df["stars_int"].fillna(city_mode)
+        na_after = df["stars_int"].isna().sum()
+        logger.info(
+            "stars_int imputed %d additional rows from city mode",
+            na_after_hotel - na_after,
+        )
+    else:
+        na_after = na_after_hotel
 
     if na_after:
-        logger.info("dropped %d rows with no stars_int and no hotel mode", na_after)
+        logger.info(
+            "dropped %d rows with no stars_int after hotel+city imputation",
+            na_after,
+        )
         df = df.loc[df["stars_int"].notna()].copy()
     return df
 

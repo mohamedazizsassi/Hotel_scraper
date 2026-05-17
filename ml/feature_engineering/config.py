@@ -298,3 +298,60 @@ UK_SCHOOL_HOLIDAYS: list[tuple[date, date]] = [
     (date(2027, 10, 23), date(2027, 10, 31)),
     (date(2027, 12, 18), date(2028,  1,  2)),
 ]
+
+
+# ---------------------------------------------------------------------------
+# Market segmentation -- defines the per-segment training partition for
+# the forecaster (and the manager-facing "segment" the recommender talks
+# about). Two coordinates:
+#
+#   * macro_region: one of {tunis_nord, cap_bon, sahel, djerba, sud}.
+#     Hand-curated from Tunisian tourism regional groupings; covers
+#     every city present in hotel_prices as of 2026-05-15. NEW CITIES
+#     APPEARING IN THE SCRAPER MUST BE ADDED HERE -- the add_segment
+#     stage fails loudly on an unmapped city, which is intentional.
+#
+#   * stars_band: {low (1-2 stars), 3, 4, 5}. Low-end stays bundled
+#     because the 1-2 segment has too few hotels to train per-band.
+#
+# Segment id is the concatenation: f"{macro_region}_{stars_band}".
+# ---------------------------------------------------------------------------
+
+CITY_TO_MACRO_REGION: dict[str, str] = {
+    # Tunis-Nord
+    "tunis":          "tunis_nord",
+    "tunis-gammarth": "tunis_nord",
+    "bizerte":        "tunis_nord",
+    "tabarka":        "tunis_nord",
+    "ain-draham":     "tunis_nord",
+    # Cap-Bon
+    "hammamet":       "cap_bon",
+    "nabeul":         "cap_bon",
+    "kelibia":        "cap_bon",
+    # Sahel
+    "sousse":         "sahel",
+    "monastir":       "sahel",
+    "mahdia":         "sahel",
+    "sfax":           "sahel",
+    "kairouan":       "sahel",
+    # Djerba (separate -- distinct island market)
+    "djerba":         "djerba",
+    # Sud
+    "tozeur":         "sud",
+    "zarzis":         "sud",
+    "douz":           "sud",
+    "gabes":          "sud",
+    "tataouine":      "sud",
+    "gafsa":          "sud",
+}
+
+MACRO_REGIONS: tuple[str, ...] = ("tunis_nord", "cap_bon", "sahel", "djerba", "sud")
+
+STARS_BAND_BOUNDARIES: dict[int, str] = {
+    1: "low", 2: "low",
+    3: "3",
+    4: "4",
+    5: "5",
+}
+
+STARS_BANDS: tuple[str, ...] = ("low", "3", "4", "5")

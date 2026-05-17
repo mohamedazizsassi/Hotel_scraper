@@ -53,7 +53,7 @@ import argparse
 import logging
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -62,9 +62,20 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from . import config
 from .assemble import assemble_features
-from .mongo_loader import load_raw_from_mongo, load_raw_from_mongo_chunked
-from .validators import validate_features
-from .writers import write_parquet_snapshot, write_postgres, write_postgres_append
+from .mongo_loader import (
+    enumerate_scrape_dates,
+    load_raw_from_mongo,
+    load_raw_from_mongo_chunked,
+)
+from .validators import merge_reports, validate_features
+from .writers import (
+    PARQUET_FILENAME_TEMPLATE,
+    open_parquet_stream,
+    swap_table_atomic,
+    write_parquet_snapshot,
+    write_postgres,
+    write_postgres_append,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -254,87 +265,172 @@ def _main_single_load(args: argparse.Namespace) -> int:
 
 
 def _main_chunked(args: argparse.Namespace) -> int:
-    """Chunked full-reprocess path (--full-reprocess)."""
-    timings: dict[str, float] = {}
-    all_features: list[pd.DataFrame] = []
-    rows_written: int = 0
-    first_chunk = True
+    """
+    Full-reprocess path (--full-reprocess), looping one scrape-day at a time.
 
-    logger.info("Starting chunked full-reprocess (chunk_size=%d)", args.chunk_size)
+    The outer loop iterates the distinct UTC scrape-days returned by
+    ``enumerate_scrape_dates``. For each day we load only that day's rows
+    (incremental read, never a full-collection scan) and run the complete
+    assemble pipeline on that isolated slice. This is the correctness
+    requirement after the 2026-05-14 C1 fix: peer-group and demand
+    aggregates are keyed by ``scrape_date``, so a day must be processed
+    as one atomic batch -- splitting a day across batches would yield
+    truncated peer sets and silently-wrong aggregates.
+    """
+    timings: dict[str, float] = {}
+    rows_written: int = 0
+    first_day = True
+
+    if args.chunk_size != 100_000:
+        logger.info(
+            "--chunk-size=%d ignored in per-scrape-date mode "
+            "(each scrape-day is one atomic chunk).",
+            args.chunk_size,
+        )
+
+    # Stream each day into a staging table; promote with a transactional
+    # rename only after every day succeeds. Closes the half-written
+    # hotel_features risk that the day-by-day APPEND approach would have
+    # left if a day mid-loop crashed (CLAUDE.md Stage 10 requires atomic
+    # writes; the swap restores that guarantee for the chunked path).
+    staging_table = f"{config.POSTGRES_FEATURES_TABLE}_staging"
 
     t0_total = time.perf_counter()
 
+    t0 = time.perf_counter()
+    scrape_days = enumerate_scrape_dates(mongo_uri=args.mongo_uri)
+    timings["enumerate_days"] = time.perf_counter() - t0
+
+    if not scrape_days:
+        logger.error("No scrape-days found in MongoDB; nothing to process.")
+        return 1
+
+    logger.info("Starting per-scrape-date full-reprocess: %d days to process", len(scrape_days))
+
+    cumulative_rows = 0
+    parquet_stream = None
+    parquet_path: Path | None = None
+    day_reports: list = []  # list[ValidationReport]
+
     try:
-        for chunk_idx, raw_chunk in enumerate(
-            load_raw_from_mongo_chunked(
-                mongo_uri=args.mongo_uri,
-                chunk_size=args.chunk_size,
-                limit=args.limit,
+        for day_idx, day_str in enumerate(scrape_days):
+            day_start = datetime.fromisoformat(day_str).replace(tzinfo=timezone.utc)
+            day_end = day_start + pd.Timedelta(days=1).to_pytimedelta()
+
+            logger.info(
+                "Processing scrape-day %d/%d: %s",
+                day_idx + 1, len(scrape_days), day_str,
             )
-        ):
-            logger.info("Processing chunk %d (rows=%d)", chunk_idx + 1, len(raw_chunk))
 
             t0 = time.perf_counter()
-            features_chunk = assemble_features(raw_chunk)
-            timings[f"assemble_chunk_{chunk_idx}"] = time.perf_counter() - t0
+            raw_day = load_raw_from_mongo(
+                mongo_uri=args.mongo_uri,
+                scraped_after=day_start - pd.Timedelta(microseconds=1).to_pytimedelta(),
+                scraped_before=day_end,
+                limit=None,
+            )
+            timings[f"load_day_{day_str}"] = time.perf_counter() - t0
 
-            all_features.append(features_chunk)
+            t0 = time.perf_counter()
+            features_day = assemble_features(raw_day)
+            timings[f"assemble_day_{day_str}"] = time.perf_counter() - t0
 
-            # Write to Postgres per chunk (TRUNCATE on first, INSERT only after).
+            # Validate per-day BEFORE any write -- fail fast on bad data
+            # rather than write a full rebuild and discover the leak later.
+            if args.validate:
+                t0 = time.perf_counter()
+                validate_kwargs: dict = {"reports_dir": None}
+                if args.leakage_sample is not None:
+                    validate_kwargs["sample_size"] = args.leakage_sample
+                day_report = validate_features(features_day, **validate_kwargs)
+                timings[f"validate_day_{day_str}"] = time.perf_counter() - t0
+                day_reports.append(day_report)
+                if not day_report.passed:
+                    logger.error(
+                        "Validation FAILED on scrape-day %s with %d failure(s). "
+                        "Aborting before any write for this day.",
+                        day_str, len(day_report.failures),
+                    )
+                    for msg in day_report.failures:
+                        logger.error("  - %s", msg)
+                    return 1
+
             if not args.parquet_only:
                 t0 = time.perf_counter()
-                if first_chunk:
+                if first_day:
                     rows_written += write_postgres(
-                        features_chunk, args.postgres_uri,
+                        features_day, args.postgres_uri, table_name=staging_table,
                     )
-                    first_chunk = False
+                    first_day = False
                 else:
                     rows_written += write_postgres_append(
-                        features_chunk, args.postgres_uri,
+                        features_day, args.postgres_uri, table_name=staging_table,
                     )
-                timings[f"postgres_chunk_{chunk_idx}"] = time.perf_counter() - t0
+                timings[f"postgres_day_{day_str}"] = time.perf_counter() - t0
+
+            if not args.postgres_only:
+                t0 = time.perf_counter()
+                if parquet_stream is None:
+                    parquet_path = args.artifacts_dir / PARQUET_FILENAME_TEMPLATE.format(
+                        date=date.today().isoformat(),
+                    )
+                    parquet_stream = open_parquet_stream(
+                        parquet_path, features_day, overwrite=args.overwrite,
+                    )
+                parquet_stream.append(features_day)
+                timings[f"parquet_day_{day_str}"] = time.perf_counter() - t0
+
+            cumulative_rows += len(features_day)
+            # Free per-day frames promptly so memory footprint stays at
+            # ~one day even on a 4 GB host.
+            del features_day, raw_day
+
+            if args.limit is not None and cumulative_rows >= args.limit:
+                logger.info("Reached --limit=%d after day %s; stopping.", args.limit, day_str)
+                break
 
     except Exception as e:
-        logger.error("Chunked processing failed: %s", e, exc_info=True)
+        logger.error("Per-scrape-date processing failed: %s", e, exc_info=True)
+        if parquet_stream is not None:
+            parquet_stream.close()
         return 1
 
-    if not all_features:
-        logger.error("No chunks were processed")
+    if parquet_stream is not None:
+        parquet_stream.close()
+
+    if cumulative_rows == 0:
+        logger.error("No scrape-days produced any rows")
         return 1
 
-    # Accumulate all chunks for final Parquet snapshot.
-    features = pd.concat(all_features, ignore_index=True)
-    logger.info("Accumulated %d rows across %d chunks", len(features), len(all_features))
-
-    # Validate final result (optional).
-    if args.validate:
-        t0 = time.perf_counter()
-        validate_kwargs = {"reports_dir": args.artifacts_dir / "reports"}
-        if args.leakage_sample is not None:
-            validate_kwargs["sample_size"] = args.leakage_sample
-        report = validate_features(features, **validate_kwargs)
-        timings["validate"] = time.perf_counter() - t0
-        if not report.passed:
-            logger.error(
-                "Validation FAILED with %d failure(s). Postgres already written; "
-                "no parquet write.",
-                len(report.failures),
-            )
-            for msg in report.failures:
-                logger.error("  - %s", msg)
-            return 1
-
-    # Write final Parquet snapshot.
-    parquet_path: Path | None = None
-    if not args.postgres_only:
-        t0 = time.perf_counter()
-        parquet_path = write_parquet_snapshot(
-            features, args.artifacts_dir, overwrite=args.overwrite,
+    # Aggregate per-day validation reports and persist a merged file.
+    if args.validate and day_reports:
+        merged = merge_reports(day_reports)
+        reports_dir = args.artifacts_dir / "reports"
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        merged_path = reports_dir / f"validation_{merged.timestamp}.json"
+        merged.to_json_file(merged_path)
+        logger.info("merged validation report written to %s", merged_path)
+        logger.info(
+            "validation summary: rows=%d failures=%d warnings=%d leakage_mismatches=%d",
+            merged.n_rows, len(merged.failures), len(merged.warnings),
+            merged.leakage_mismatches,
         )
-        timings["parquet"] = time.perf_counter() - t0
+
+    # Promote staging -> live hotel_features atomically. Only reached
+    # if every day succeeded -- partial runs leave the live table alone
+    # and the orphan staging table will be DROP+CREATE'd by the next
+    # run's day-1 write.
+    if not args.parquet_only:
+        t0 = time.perf_counter()
+        swap_table_atomic(
+            args.postgres_uri,
+            staging_table=staging_table,
+            final_table=config.POSTGRES_FEATURES_TABLE,
+        )
+        timings["postgres_swap"] = time.perf_counter() - t0
 
     timings["total"] = time.perf_counter() - t0_total
-    _print_summary(features, timings, parquet_path, rows_written)
+    _print_summary_streaming(timings, parquet_path, rows_written, cumulative_rows)
     return 0
 
 
@@ -377,6 +473,48 @@ def _latest_scraped_at(postgres_uri: str) -> datetime | None:
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
+
+def _print_summary_streaming(
+    timings: dict[str, float],
+    parquet_path: Path | None,
+    rows_written: int,
+    rows_seen: int,
+) -> None:
+    """
+    Console summary for the streaming per-scrape-date build path.
+
+    The streaming path never holds the full concatenated frame in
+    memory, so the rich per-column dimensions ``_print_summary`` prints
+    are not available. We surface row counts and timings instead -- the
+    merged validation report carries the full coverage breakdown.
+    """
+    bar = "=" * 64
+    print(bar)
+    print(f"rows seen          : {rows_seen:,}")
+    print(f"rows -> postgres   : {rows_written:,}")
+    print(f"parquet path       : {parquet_path if parquet_path else '(skipped)'}")
+    print("-" * 64)
+    print("stage timings (s):")
+    # Collapse per-day timings to summary stats so the output stays
+    # readable across ~15+ scrape-days.
+    by_prefix: dict[str, list[float]] = {}
+    other: dict[str, float] = {}
+    for name, sec in timings.items():
+        for prefix in ("load_day_", "assemble_day_", "validate_day_", "postgres_day_", "parquet_day_"):
+            if name.startswith(prefix):
+                by_prefix.setdefault(prefix.rstrip("_"), []).append(sec)
+                break
+        else:
+            other[name] = sec
+    for name, sec in other.items():
+        print(f"  {name:<22} {sec:>8.2f}")
+    for prefix, secs in by_prefix.items():
+        print(
+            f"  {prefix:<22} n={len(secs):<3} sum={sum(secs):>7.1f} "
+            f"min={min(secs):>5.1f} max={max(secs):>5.1f}"
+        )
+    print(bar)
+
 
 def _print_summary(
     df: pd.DataFrame,

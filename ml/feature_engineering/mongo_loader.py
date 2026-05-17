@@ -351,6 +351,61 @@ def load_raw_from_mongo_chunked(
     logger.info("Chunked read complete: %d rows total", rows_yielded)
 
 
+def enumerate_scrape_dates(
+    mongo_uri: str = MONGO_URI,
+    database: str = MONGO_DATABASE,
+    collection: str = MONGO_COLLECTION,
+    scraped_after: datetime | None = None,
+) -> list[str]:
+    """
+    Return the sorted list of distinct UTC calendar scrape-days present
+    in MongoDB, as ``YYYY-MM-DD`` strings.
+
+    Drives the per-scrape-date outer loop in the chunked feature build:
+    each returned day becomes one self-contained pipeline pass so that
+    peer-group aggregates (Stage 7) and demand-rate slices (Stage 8) see
+    every row of a given scrape day together -- required for leakage-safe
+    aggregation after the 2026-05-14 C1 fix re-keyed peers by
+    ``scrape_date`` instead of ``check_in``.
+
+    Implementation note: ``scraped_at`` is persisted by the scraper as
+    an ISO-8601 string (not a BSON date). ISO-8601 sorts lexicographically
+    the same as chronologically, so a ``$substrBytes(scraped_at, 0, 10)``
+    projection is a safe day key, and a ``$gt`` string comparison is a
+    correct ``scraped_after`` filter.
+    """
+    match_stage: dict[str, Any] = {}
+    if scraped_after is not None:
+        match_stage["scraped_at"] = {"$gt": scraped_after.isoformat()}
+
+    pipeline: list[dict[str, Any]] = []
+    if match_stage:
+        pipeline.append({"$match": match_stage})
+    pipeline.extend([
+        {"$project": {"_id": 0, "day": {"$substrBytes": ["$scraped_at", 0, 10]}}},
+        {"$group": {"_id": "$day"}},
+        {"$sort": {"_id": 1}},
+    ])
+
+    logger.info(
+        "Enumerating distinct scrape-days from %s.%s%s",
+        database, collection,
+        f" scraped_after={scraped_after.isoformat()}" if scraped_after else "",
+    )
+
+    t0 = time.perf_counter()
+    client = MongoClient(mongo_uri, serverSelectionTimeoutMS=10_000)
+    try:
+        coll = client[database][collection]
+        days = [doc["_id"] for doc in coll.aggregate(pipeline, allowDiskUse=True)]
+    finally:
+        client.close()
+    elapsed = time.perf_counter() - t0
+
+    logger.info("Found %d distinct scrape-days in %.2fs", len(days), elapsed)
+    return days
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

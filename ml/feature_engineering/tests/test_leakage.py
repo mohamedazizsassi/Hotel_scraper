@@ -162,11 +162,9 @@ def test_perturbing_own_price_does_not_change_own_aggregates() -> None:
 # every (offer × scrape_run) row survives so the booking-window
 # trajectory carried by ``days_until_checkin`` is preserved.
 #
-# A dedup-to-most-recent-per-business-key fix (see
-# ``temporal_dedup.py``) was implemented first and reverted in favour of
-# the scrape-date approach because it also collapsed every offer to a
-# single row, deleting that trajectory. The dedup module is still kept
-# for serving-side use cases that genuinely want "latest snapshot only".
+# A dedup-to-most-recent-per-business-key fix was implemented first
+# and reverted in favour of the scrape-date approach because it also
+# collapsed every offer to a single row, deleting that trajectory.
 
 
 def _toy_frame_with_temporal_duplicates() -> pd.DataFrame:

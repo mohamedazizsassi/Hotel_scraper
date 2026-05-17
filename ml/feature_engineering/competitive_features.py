@@ -27,8 +27,11 @@ For each ``g`` in {tight, medium, loose}:
     * peer_{g}_min      -> float64 or NaN
     * peer_{g}_max      -> float64 or NaN
     * peer_{g}_std      -> float64 or NaN (NaN when count < 2)
-    * delta_vs_peer_{g}_median_pct -> float64 or NaN
-    * rank_in_peer_{g}  -> float64 in [0, 1] or NaN  (own-price percentile)
+    * observed_delta_vs_peer_{g}_median_pct -> float64 or NaN
+      (LEAKAGE for forecaster: derived from own price_per_night; safe
+      for anomaly/recommender at scrape time when price is observed)
+    * observed_rank_in_peer_{g} -> float64 in [0, 1] or NaN
+      (own-price percentile; same leakage caveat as the delta above)
 
 Plus:
     * best_peer_granularity_used -> string in {tight, medium, loose} or
@@ -184,8 +187,8 @@ def _peer_stats_for_granularity(df: pd.DataFrame, granularity: str) -> pd.DataFr
             f"peer_{granularity}_min":    pmin,
             f"peer_{granularity}_max":    pmax,
             f"peer_{granularity}_std":    pstd,
-            f"delta_vs_peer_{granularity}_median_pct": delta_pct,
-            f"rank_in_peer_{granularity}": rank,
+            f"observed_delta_vs_peer_{granularity}_median_pct": delta_pct,
+            f"observed_rank_in_peer_{granularity}": rank,
         },
         index=df.index,
     )
