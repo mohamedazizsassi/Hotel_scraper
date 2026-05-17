@@ -133,10 +133,29 @@ def test_stars_int_imputed_from_hotel_mode() -> None:
     assert (out["stars_int"] == 4).all()
 
 
-def test_stars_int_unrecoverable_dropped() -> None:
+def test_stars_int_falls_back_to_city_mode() -> None:
+    """
+    A hotel with no observed stars anywhere is imputed from the city's
+    modal star tier (D5 fix: tunisiepromo sparse-metadata hotels would
+    otherwise be dropped).
+    """
     rows = [
         _base_row(hotel_name_normalized="hotel_a", stars="4"),
-        _base_row(hotel_name_normalized="hotel_b", stars="bogus"),  # nothing to impute from
+        _base_row(hotel_name_normalized="hotel_b", stars="bogus"),  # city fallback -> 4
+    ]
+    out = clean(_df(rows))
+    assert len(out) == 2
+    assert (out["stars_int"] == 4).all()
+
+
+def test_stars_int_unrecoverable_dropped() -> None:
+    """
+    A row whose hotel AND whose city have no observed stars is the
+    truly-unrecoverable case and is dropped.
+    """
+    rows = [
+        _base_row(hotel_name_normalized="hotel_a", city_name="Hammamet", stars="4"),
+        _base_row(hotel_name_normalized="hotel_b", city_name="Bizerte", stars="bogus"),
     ]
     out = clean(_df(rows))
     assert len(out) == 1

@@ -152,7 +152,7 @@ def test_zero_peers_produce_nan_aggregates() -> None:
     assert out["peer_tight_count"].iloc[0] == 0
     for col in ("peer_tight_median", "peer_tight_p25", "peer_tight_p75",
                 "peer_tight_min", "peer_tight_max", "peer_tight_std",
-                "delta_vs_peer_tight_median_pct", "rank_in_peer_tight"):
+                "observed_delta_vs_peer_tight_median_pct", "observed_rank_in_peer_tight"):
         assert pd.isna(out[col].iloc[0])
 
 
@@ -164,7 +164,7 @@ def test_delta_pct_sign_and_magnitude() -> None:
     ])
     out = add_competitive_features(df)
     # Row A: peers {100, 200} median 150 → delta = (100-150)/150*100 = -33.33.
-    assert out.loc[0, "delta_vs_peer_tight_median_pct"] == pytest.approx(-100/3, abs=1e-6)
+    assert out.loc[0, "observed_delta_vs_peer_tight_median_pct"] == pytest.approx(-100/3, abs=1e-6)
 
 
 def test_rank_excludes_self() -> None:
@@ -176,8 +176,8 @@ def test_rank_excludes_self() -> None:
     out = add_competitive_features(df)
     # Row A (50): peers {100, 200} → 0 below, 0 equal → rank 0.0
     # Row C (200): peers {50, 100} → 2 below → rank 1.0
-    assert out.loc[0, "rank_in_peer_tight"] == pytest.approx(0.0)
-    assert out.loc[2, "rank_in_peer_tight"] == pytest.approx(1.0)
+    assert out.loc[0, "observed_rank_in_peer_tight"] == pytest.approx(0.0)
+    assert out.loc[2, "observed_rank_in_peer_tight"] == pytest.approx(1.0)
 
 
 # ---------------------------------------------------------------------------

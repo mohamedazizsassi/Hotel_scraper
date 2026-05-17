@@ -36,6 +36,7 @@ from .cleaners import clean
 from .competitive_features import add_competitive_features
 from .demand_features import add_demand_features
 from .scrape_date import add_scrape_date
+from .segment_features import add_segment_features
 from .supplement_expansion import expand_supplements
 from .taxonomy import canonicalize_boarding, parse_room
 
@@ -61,6 +62,7 @@ _STAGES: list[tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]] = [
     ("canonicalize_boarding", canonicalize_boarding),
     ("parse_room", parse_room),
     ("calendar", add_calendar_features),
+    ("segment", add_segment_features),
     ("competitive", add_competitive_features),
     ("demand", add_demand_features),
 ]

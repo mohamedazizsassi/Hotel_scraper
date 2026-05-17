@@ -10,12 +10,21 @@ temporal leakage documented in the 2026-05-14 audit (a row scraped on
 WITHOUT discarding the per-offer time-series that ``days_until_checkin``
 depends on.
 
-The earlier dedup-to-most-recent approach (``temporal_dedup.py``) also
-killed the leak, but at the cost of collapsing every offer to one row
-and thereby flattening the booking-window trajectory — exactly the
-non-linear effect ``CLAUDE.md`` flags as central to the Tunisian
-market. Scrape-date keying preserves every (offer × scrape) observation
-as an independent training row.
+An earlier dedup-to-most-recent approach also killed the leak, but at
+the cost of collapsing every offer to one row and thereby flattening
+the booking-window trajectory — exactly the non-linear effect
+``CLAUDE.md`` flags as central to the Tunisian market. Scrape-date
+keying preserves every (offer × scrape) observation as an independent
+training row.
+
+Trade-off worth noting: the key is the UTC *calendar day*, not the
+scheduled run, so the 10:00 and 15:00 scheduled scrapes are pooled
+into one peer set. A row scraped at 10:00 will see afternoon prices
+among its peers — a ~5 h temporal mismatch. The alternative (key on
+``scrape_run_id``) halves the per-row peer count, which is the bigger
+modelling cost given sparsity in the *tight* granularity. Documented
+choice, not an oversight; revisit if intraday price drift turns out to
+be material relative to day-to-day drift.
 
 Contract:
     * Input must contain ``scraped_at`` as a tz-aware UTC datetime

@@ -121,10 +121,10 @@ def test_unknown_boarding_above_threshold_fails() -> None:
 
 def test_delta_pct_outliers_emit_warnings() -> None:
     df = _good_frame()
-    df.loc[0, "delta_vs_peer_medium_median_pct"] = DELTA_PCT_FLAG_ABS + 1.0
+    df.loc[0, "observed_delta_vs_peer_medium_median_pct"] = DELTA_PCT_FLAG_ABS + 1.0
     report = validate_features(df, reports_dir=None)
     assert report.passed, "outlier delta should warn, not fail"
-    assert any("delta_vs_peer_medium_median_pct" in w for w in report.warnings)
+    assert any("observed_delta_vs_peer_medium_median_pct" in w for w in report.warnings)
 
 
 # ---------------------------------------------------------------------------

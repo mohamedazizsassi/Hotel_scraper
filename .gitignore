@@ -18,6 +18,9 @@ output/
 scraper/logs/
 scraper/_*.log
 
+# ML artifacts
+ml/artifacts/*.parquet
+
 # Logs
 *.log
 
