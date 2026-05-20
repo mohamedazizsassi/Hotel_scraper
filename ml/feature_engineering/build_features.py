@@ -70,6 +70,7 @@ from .mongo_loader import (
 from .validators import merge_reports, validate_features
 from .writers import (
     PARQUET_FILENAME_TEMPLATE,
+    add_serving_indexes,
     open_parquet_stream,
     swap_table_atomic,
     write_calendar_dim,
@@ -444,6 +445,17 @@ def _main_chunked(args: argparse.Namespace) -> int:
             final_table=config.POSTGRES_FEATURES_TABLE,
         )
         timings["postgres_swap"] = time.perf_counter() - t0
+
+        # Re-create serving indexes on the freshly-promoted live table.
+        # The swap is a DROP+RENAME so any indexes that existed on the
+        # previous hotel_features are gone; ~8 min to rebuild on 29M rows.
+        t0 = time.perf_counter()
+        _idx_engine = create_engine(args.postgres_uri)
+        try:
+            add_serving_indexes(_idx_engine, config.POSTGRES_FEATURES_TABLE)
+        finally:
+            _idx_engine.dispose()
+        timings["postgres_indexes"] = time.perf_counter() - t0
 
         # Write dim tables after promotion so they are consistent with
         # the live hotel_features. dim_frames is the union of calendar

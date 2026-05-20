@@ -317,6 +317,13 @@ def _atomic_truncate_insert(
         "wrote postgres table=%s rows=%d cols=%d",
         table_name, len(df), df.shape[1],
     )
+
+    # Indexes are built AFTER the data-write commits — Postgres bulk
+    # inserts are faster against an unindexed table, and the brief
+    # window of "live table without indexes" is acceptable (the table
+    # was unavailable a moment earlier under DROP anyway).
+    if table_name == "hotel_features":
+        add_serving_indexes(engine, table_name)
     return len(df)
 
 
@@ -346,6 +353,55 @@ def _atomic_insert_only(
         table_name, len(df),
     )
     return len(df)
+
+
+# ---------------------------------------------------------------------------
+# Serving-table indexes
+# ---------------------------------------------------------------------------
+# B-tree indexes added to hotel_features after every load. The pipeline
+# DROP+CREATEs the table on every run (so schema changes are reflected
+# automatically), which also wipes any pre-existing indexes — therefore
+# the writer is responsible for rebuilding them.
+#
+# Index choices come from the EDA workload + planned FastAPI manager
+# queries. Adding more indexes is cheap to do but adds ~30-150s per
+# index to every pipeline run (≈8 min total for these five on 29M rows).
+
+HOTEL_FEATURES_SERVING_INDEXES: tuple[tuple[str, ...], ...] = (
+    ("scrape_date",),                              # time-based filter / GROUP BY
+    ("check_in",),                                 # VIEW join to calendar_dim
+    ("hotel_name_normalized",),                    # per-hotel lookups (FastAPI hot path)
+    ("city_name", "stars_int"),                    # VIEW join to segment_dim
+    ("scrape_date", "hotel_name_normalized"),      # "latest snapshot per hotel"
+)
+
+
+def add_serving_indexes(
+    engine: Engine, table_name: str = "hotel_features",
+) -> None:
+    """
+    Create the serving B-tree indexes + run ANALYZE on ``table_name``.
+
+    Idempotent via ``CREATE INDEX IF NOT EXISTS``. Called from both
+    write paths so the live serving table is always query-ready after a
+    pipeline run.
+
+    Index names follow ``idx_hf_<col1>[_<col2>...]`` to keep them short
+    and grep-able.
+    """
+    with engine.begin() as conn:
+        for cols in HOTEL_FEATURES_SERVING_INDEXES:
+            idx_name = "idx_hf_" + "_".join(cols)
+            col_list = ", ".join(f'"{c}"' for c in cols)
+            conn.execute(text(
+                f'CREATE INDEX IF NOT EXISTS "{idx_name}" '
+                f'ON "{table_name}" ({col_list})'
+            ))
+        conn.execute(text(f'ANALYZE "{table_name}"'))
+    logger.info(
+        "created serving indexes + ANALYZE on table=%s (n=%d)",
+        table_name, len(HOTEL_FEATURES_SERVING_INDEXES),
+    )
 
 
 def swap_table_atomic(
