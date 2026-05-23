@@ -1,0 +1,340 @@
+{
+  "date": "2026-05-23",
+  "split": "time_wise",
+  "models_dir": "models\\forecasting\\lgbm_quantile_2026-05-23\\time_wise",
+  "parquet": "artifacts/cache/sample_5M_seed42.parquet",
+  "n_test": 1000000,
+  "calibrator": {
+    "alpha": 0.2,
+    "c_log_scale": 0.0502853988494838,
+    "n_cal_fit": 250000
+  },
+  "overall": {
+    "flag_rate_pct": 23.25,
+    "overpriced_pct": 12.02,
+    "underpriced_pct": 11.23,
+    "expected_pct": 80.0
+  },
+  "per_segment": {
+    "by_macro_region": {
+      "cap_bon": {
+        "n": 295805,
+        "flag_rate_pct": 20.63,
+        "overpriced_pct": 10.19,
+        "underpriced_pct": 10.44
+      },
+      "djerba": {
+        "n": 155663,
+        "flag_rate_pct": 24.81,
+        "overpriced_pct": 12.99,
+        "underpriced_pct": 11.81
+      },
+      "sahel": {
+        "n": 327295,
+        "flag_rate_pct": 28.03,
+        "overpriced_pct": 17.1,
+        "underpriced_pct": 10.92
+      },
+      "sud": {
+        "n": 73964,
+        "flag_rate_pct": 28.69,
+        "overpriced_pct": 9.96,
+        "underpriced_pct": 18.73
+      },
+      "tunis_nord": {
+        "n": 147273,
+        "flag_rate_pct": 13.5,
+        "overpriced_pct": 4.38,
+        "underpriced_pct": 9.12
+      }
+    },
+    "by_stars_band": {
+      "3": {
+        "n": 88307,
+        "flag_rate_pct": 21.34,
+        "overpriced_pct": 10.99,
+        "underpriced_pct": 10.35
+      },
+      "4": {
+        "n": 517871,
+        "flag_rate_pct": 23.53,
+        "overpriced_pct": 10.82,
+        "underpriced_pct": 12.71
+      },
+      "5": {
+        "n": 393690,
+        "flag_rate_pct": 23.3,
+        "overpriced_pct": 13.83,
+        "underpriced_pct": 9.48
+      },
+      "low": {
+        "n": 132,
+        "flag_rate_pct": 25.0,
+        "overpriced_pct": 1.52,
+        "underpriced_pct": 23.48
+      }
+    }
+  },
+  "top_extreme": [
+    {
+      "hotel_name_normalized": "four seasons hotels",
+      "city_name": "tunis",
+      "stars_int": 5,
+      "macro_region": "tunis_nord",
+      "stars_band": "5",
+      "scraped_at": "2026-05-18 10:32:47.192044+01:00",
+      "nights": 1,
+      "price": 4435.8681640625,
+      "boarding_canonical": "BB",
+      "anomaly_score": 1022800122.3905377,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "four seasons hotels",
+      "city_name": "tunis",
+      "stars_int": 5,
+      "macro_region": "tunis_nord",
+      "stars_band": "5",
+      "scraped_at": "2026-05-13 10:15:12.350668+01:00",
+      "nights": 5,
+      "price": 22179.33984375,
+      "boarding_canonical": "BB",
+      "anomaly_score": 987595962.3477416,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "appartement palm lake folla resort monastir",
+      "city_name": "monastir",
+      "stars_int": 5,
+      "macro_region": "sahel",
+      "stars_band": "5",
+      "scraped_at": "2026-05-10 10:12:06.598410+01:00",
+      "nights": 5,
+      "price": 1500.739990234375,
+      "boarding_canonical": "LOG",
+      "anomaly_score": -609741258.2751138,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "tunis grand hotel",
+      "city_name": "tunis",
+      "stars_int": 5,
+      "macro_region": "tunis_nord",
+      "stars_band": "5",
+      "scraped_at": "2026-05-18 10:11:17.836064+01:00",
+      "nights": 3,
+      "price": 3948.2529296875,
+      "boarding_canonical": "PC",
+      "anomaly_score": 606315719.7095484,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "itropika tabarka",
+      "city_name": "tabarka",
+      "stars_int": 4,
+      "macro_region": "tunis_nord",
+      "stars_band": "4",
+      "scraped_at": "2026-05-18 15:25:28.360677+01:00",
+      "nights": 1,
+      "price": 371.0,
+      "boarding_canonical": "PC_PLUS",
+      "anomaly_score": -599356955.4580089,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "itropika tabarka",
+      "city_name": "tabarka",
+      "stars_int": 4,
+      "macro_region": "tunis_nord",
+      "stars_band": "4",
+      "scraped_at": "2026-05-11 15:07:33.005234+01:00",
+      "nights": 1,
+      "price": 371.0,
+      "boarding_canonical": "PC_PLUS",
+      "anomaly_score": -597816953.5476682,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "itropika tabarka",
+      "city_name": "tabarka",
+      "stars_int": 4,
+      "macro_region": "tunis_nord",
+      "stars_band": "4",
+      "scraped_at": "2026-05-15 10:12:32.022386+01:00",
+      "nights": 1,
+      "price": 308.0,
+      "boarding_canonical": "HDP_PLUS",
+      "anomaly_score": -594305114.7488453,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "itropika tabarka",
+      "city_name": "tabarka",
+      "stars_int": 4,
+      "macro_region": "tunis_nord",
+      "stars_band": "4",
+      "scraped_at": "2026-05-10 15:06:37.437659+01:00",
+      "nights": 5,
+      "price": 981.0,
+      "boarding_canonical": "BB",
+      "anomaly_score": -559419368.1190864,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "itropika tabarka",
+      "city_name": "tabarka",
+      "stars_int": 4,
+      "macro_region": "tunis_nord",
+      "stars_band": "4",
+      "scraped_at": "2026-05-10 10:13:02.901330+01:00",
+      "nights": 5,
+      "price": 981.0,
+      "boarding_canonical": "BB",
+      "anomaly_score": -559419368.1190864,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "itropika tabarka",
+      "city_name": "tabarka",
+      "stars_int": 4,
+      "macro_region": "tunis_nord",
+      "stars_band": "4",
+      "scraped_at": "2026-05-18 10:39:42.241719+01:00",
+      "nights": 1,
+      "price": 371.0,
+      "boarding_canonical": "PC_PLUS",
+      "anomaly_score": -557927440.976127,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "itropika tabarka",
+      "city_name": "tabarka",
+      "stars_int": 4,
+      "macro_region": "tunis_nord",
+      "stars_band": "4",
+      "scraped_at": "2026-05-14 10:40:47.974294+01:00",
+      "nights": 1,
+      "price": 371.0,
+      "boarding_canonical": "PC_PLUS",
+      "anomaly_score": -557627402.5301862,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "itropika tabarka",
+      "city_name": "tabarka",
+      "stars_int": 4,
+      "macro_region": "tunis_nord",
+      "stars_band": "4",
+      "scraped_at": "2026-05-14 15:08:09.256390+01:00",
+      "nights": 1,
+      "price": 371.0,
+      "boarding_canonical": "PC_PLUS",
+      "anomaly_score": -557627402.5301862,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "itropika tabarka",
+      "city_name": "tabarka",
+      "stars_int": 4,
+      "macro_region": "tunis_nord",
+      "stars_band": "4",
+      "scraped_at": "2026-05-16 12:21:05.064448+01:00",
+      "nights": 5,
+      "price": 981.0,
+      "boarding_canonical": "BB",
+      "anomaly_score": -556293199.6232656,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "itropika tabarka",
+      "city_name": "tabarka",
+      "stars_int": 4,
+      "macro_region": "tunis_nord",
+      "stars_band": "4",
+      "scraped_at": "2026-05-14 15:08:09.256390+01:00",
+      "nights": 1,
+      "price": 308.0,
+      "boarding_canonical": "HDP_PLUS",
+      "anomaly_score": -554964264.4712929,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "itropika tabarka",
+      "city_name": "tabarka",
+      "stars_int": 4,
+      "macro_region": "tunis_nord",
+      "stars_band": "4",
+      "scraped_at": "2026-05-17 15:05:25.687711+01:00",
+      "nights": 1,
+      "price": 343.0,
+      "boarding_canonical": "PC_PLUS",
+      "anomaly_score": -544151857.9484264,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "itropika tabarka",
+      "city_name": "tabarka",
+      "stars_int": 4,
+      "macro_region": "tunis_nord",
+      "stars_band": "4",
+      "scraped_at": "2026-05-17 10:59:15.159665+01:00",
+      "nights": 1,
+      "price": 343.0,
+      "boarding_canonical": "PC_PLUS",
+      "anomaly_score": -544151857.9484264,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "itropika tabarka",
+      "city_name": "tabarka",
+      "stars_int": 4,
+      "macro_region": "tunis_nord",
+      "stars_band": "4",
+      "scraped_at": "2026-05-14 10:40:19.255353+01:00",
+      "nights": 1,
+      "price": 343.0,
+      "boarding_canonical": "PC_PLUS",
+      "anomaly_score": -543800137.9287164,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "itropika tabarka",
+      "city_name": "tabarka",
+      "stars_int": 4,
+      "macro_region": "tunis_nord",
+      "stars_band": "4",
+      "scraped_at": "2026-05-11 15:06:46.351590+01:00",
+      "nights": 5,
+      "price": 1260.0,
+      "boarding_canonical": "HDP_PLUS",
+      "anomaly_score": -538026061.1557155,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "itropika tabarka",
+      "city_name": "tabarka",
+      "stars_int": 4,
+      "macro_region": "tunis_nord",
+      "stars_band": "4",
+      "scraped_at": "2026-05-10 15:06:37.437659+01:00",
+      "nights": 5,
+      "price": 1260.0,
+      "boarding_canonical": "HDP_PLUS",
+      "anomaly_score": -537758007.3525205,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "itropika tabarka",
+      "city_name": "tabarka",
+      "stars_int": 4,
+      "macro_region": "tunis_nord",
+      "stars_band": "4",
+      "scraped_at": "2026-05-11 13:21:07.561299+01:00",
+      "nights": 5,
+      "price": 1260.0,
+      "boarding_canonical": "HDP_PLUS",
+      "anomaly_score": -533370113.05788624,
+      "is_anomaly": true
+    }
+  ]
+}

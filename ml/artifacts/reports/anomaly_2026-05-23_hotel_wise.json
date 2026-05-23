@@ -1,0 +1,334 @@
+{
+  "date": "2026-05-23",
+  "split": "hotel_wise",
+  "models_dir": "models\\forecasting\\lgbm_quantile_2026-05-23\\hotel_wise",
+  "parquet": "artifacts/cache/sample_5M_seed42.parquet",
+  "n_test": 810254,
+  "calibrator": {
+    "alpha": 0.2,
+    "c_log_scale": 0.16006519291834387,
+    "n_cal_fit": 291462
+  },
+  "overall": {
+    "flag_rate_pct": 19.45,
+    "overpriced_pct": 2.74,
+    "underpriced_pct": 16.71,
+    "expected_pct": 80.0
+  },
+  "per_segment": {
+    "by_macro_region": {
+      "cap_bon": {
+        "n": 260419,
+        "flag_rate_pct": 16.56,
+        "overpriced_pct": 0.99,
+        "underpriced_pct": 15.57
+      },
+      "djerba": {
+        "n": 99104,
+        "flag_rate_pct": 9.86,
+        "overpriced_pct": 8.07,
+        "underpriced_pct": 1.8
+      },
+      "sahel": {
+        "n": 230317,
+        "flag_rate_pct": 26.38,
+        "overpriced_pct": 0.37,
+        "underpriced_pct": 26.01
+      },
+      "sud": {
+        "n": 42747,
+        "flag_rate_pct": 53.02,
+        "overpriced_pct": 0.06,
+        "underpriced_pct": 52.96
+      },
+      "tunis_nord": {
+        "n": 177667,
+        "flag_rate_pct": 11.97,
+        "overpriced_pct": 6.06,
+        "underpriced_pct": 5.91
+      }
+    },
+    "by_stars_band": {
+      "3": {
+        "n": 84398,
+        "flag_rate_pct": 2.49,
+        "overpriced_pct": 0.13,
+        "underpriced_pct": 2.36
+      },
+      "4": {
+        "n": 453232,
+        "flag_rate_pct": 18.9,
+        "overpriced_pct": 2.69,
+        "underpriced_pct": 16.21
+      },
+      "5": {
+        "n": 272624,
+        "flag_rate_pct": 25.61,
+        "overpriced_pct": 3.63,
+        "underpriced_pct": 21.97
+      }
+    }
+  },
+  "top_extreme": [
+    {
+      "hotel_name_normalized": "yocca hotel residence 4 ex lella halima",
+      "city_name": "hammamet",
+      "stars_int": 5,
+      "macro_region": "cap_bon",
+      "stars_band": "5",
+      "scraped_at": "2026-05-05 10:31:22.475946+01:00",
+      "nights": 5,
+      "price": 371.70001220703125,
+      "boarding_canonical": "LOG",
+      "anomaly_score": -1.8864683000466709,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "le corail suites hotel",
+      "city_name": "tunis",
+      "stars_int": 5,
+      "macro_region": "tunis_nord",
+      "stars_band": "5",
+      "scraped_at": "2026-05-13 10:14:49.751418+01:00",
+      "nights": 5,
+      "price": 11330.6552734375,
+      "boarding_canonical": "PC",
+      "anomaly_score": 1.8796923823356422,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "yocca hotel residence 4 ex lella halima",
+      "city_name": "hammamet",
+      "stars_int": 5,
+      "macro_region": "cap_bon",
+      "stars_band": "5",
+      "scraped_at": "2026-05-14 15:07:42.365776+01:00",
+      "nights": 5,
+      "price": 371.70001220703125,
+      "boarding_canonical": "LOG",
+      "anomaly_score": -1.8716398882386138,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "yocca hotel residence 4 ex lella halima",
+      "city_name": "hammamet",
+      "stars_int": 5,
+      "macro_region": "cap_bon",
+      "stars_band": "5",
+      "scraped_at": "2026-05-05 10:54:03.999781+01:00",
+      "nights": 5,
+      "price": 371.70001220703125,
+      "boarding_canonical": "LOG",
+      "anomaly_score": -1.8452330556795276,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "yocca hotel residence 4 ex lella halima",
+      "city_name": "hammamet",
+      "stars_int": 5,
+      "macro_region": "cap_bon",
+      "stars_band": "5",
+      "scraped_at": "2026-05-11 15:06:51.754951+01:00",
+      "nights": 5,
+      "price": 371.70001220703125,
+      "boarding_canonical": "LOG",
+      "anomaly_score": -1.8341661933585514,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "yocca hotel residence 4 ex lella halima",
+      "city_name": "hammamet",
+      "stars_int": 5,
+      "macro_region": "cap_bon",
+      "stars_band": "5",
+      "scraped_at": "2026-05-11 15:06:23.135788+01:00",
+      "nights": 5,
+      "price": 371.70001220703125,
+      "boarding_canonical": "LOG",
+      "anomaly_score": -1.8341661933585514,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "palm beach palace tozeur",
+      "city_name": "tozeur",
+      "stars_int": 5,
+      "macro_region": "sud",
+      "stars_band": "5",
+      "scraped_at": "2026-05-03 15:27:18.927888+01:00",
+      "nights": 3,
+      "price": 1004.5239868164062,
+      "boarding_canonical": "HDP",
+      "anomaly_score": -1.8319272691121296,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "yocca hotel residence 4 ex lella halima",
+      "city_name": "hammamet",
+      "stars_int": 5,
+      "macro_region": "cap_bon",
+      "stars_band": "5",
+      "scraped_at": "2026-05-18 10:40:53.553286+01:00",
+      "nights": 3,
+      "price": 483.2099914550781,
+      "boarding_canonical": "LOG",
+      "anomaly_score": -1.7950854377355316,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "yocca hotel residence 4 ex lella halima",
+      "city_name": "hammamet",
+      "stars_int": 5,
+      "macro_region": "cap_bon",
+      "stars_band": "5",
+      "scraped_at": "2026-05-05 11:07:48.341489+01:00",
+      "nights": 3,
+      "price": 371.70001220703125,
+      "boarding_canonical": "LOG",
+      "anomaly_score": -1.7671076643452137,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "yocca hotel residence 4 ex lella halima",
+      "city_name": "hammamet",
+      "stars_int": 5,
+      "macro_region": "cap_bon",
+      "stars_band": "5",
+      "scraped_at": "2026-05-05 11:08:12.794768+01:00",
+      "nights": 3,
+      "price": 371.70001220703125,
+      "boarding_canonical": "LOG",
+      "anomaly_score": -1.7671076643452137,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "yocca hotel residence 4 ex lella halima",
+      "city_name": "hammamet",
+      "stars_int": 5,
+      "macro_region": "cap_bon",
+      "stars_band": "5",
+      "scraped_at": "2026-05-11 15:04:11.417931+01:00",
+      "nights": 5,
+      "price": 247.8000030517578,
+      "boarding_canonical": "LOG",
+      "anomaly_score": -1.726846385723752,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "yocca hotel residence 4 ex lella halima",
+      "city_name": "hammamet",
+      "stars_int": 5,
+      "macro_region": "cap_bon",
+      "stars_band": "5",
+      "scraped_at": "2026-05-14 10:08:30.661552+01:00",
+      "nights": 3,
+      "price": 297.3599853515625,
+      "boarding_canonical": "LOG",
+      "anomaly_score": -1.7112052976154601,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "yocca hotel residence 4 ex lella halima",
+      "city_name": "hammamet",
+      "stars_int": 5,
+      "macro_region": "cap_bon",
+      "stars_band": "5",
+      "scraped_at": "2026-05-05 10:28:11.013873+01:00",
+      "nights": 5,
+      "price": 247.8000030517578,
+      "boarding_canonical": "LOG",
+      "anomaly_score": -1.697639416563528,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "yocca hotel residence 4 ex lella halima",
+      "city_name": "hammamet",
+      "stars_int": 5,
+      "macro_region": "cap_bon",
+      "stars_band": "5",
+      "scraped_at": "2026-05-05 10:29:02.216692+01:00",
+      "nights": 5,
+      "price": 247.8000030517578,
+      "boarding_canonical": "LOG",
+      "anomaly_score": -1.6860999346178065,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "yocca hotel residence 4 ex lella halima",
+      "city_name": "hammamet",
+      "stars_int": 5,
+      "macro_region": "cap_bon",
+      "stars_band": "5",
+      "scraped_at": "2026-05-14 15:07:42.365776+01:00",
+      "nights": 5,
+      "price": 247.8000030517578,
+      "boarding_canonical": "LOG",
+      "anomaly_score": -1.6852798013789532,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "yocca hotel residence 4 ex lella halima",
+      "city_name": "hammamet",
+      "stars_int": 5,
+      "macro_region": "cap_bon",
+      "stars_band": "5",
+      "scraped_at": "2026-05-16 15:03:55.617017+01:00",
+      "nights": 5,
+      "price": 247.8000030517578,
+      "boarding_canonical": "LOG",
+      "anomaly_score": -1.6852798013789532,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "yocca hotel residence 4 ex lella halima",
+      "city_name": "hammamet",
+      "stars_int": 5,
+      "macro_region": "cap_bon",
+      "stars_band": "5",
+      "scraped_at": "2026-05-13 10:03:59.170846+01:00",
+      "nights": 5,
+      "price": 247.8000030517578,
+      "boarding_canonical": "LOG",
+      "anomaly_score": -1.684050212956365,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "palm beach palace tozeur",
+      "city_name": "tozeur",
+      "stars_int": 5,
+      "macro_region": "sud",
+      "stars_band": "5",
+      "scraped_at": "2026-05-04 12:40:46.847875+01:00",
+      "nights": 3,
+      "price": 898.2760009765625,
+      "boarding_canonical": "HDP",
+      "anomaly_score": -1.6834672657279828,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "yocca hotel residence 4 ex lella halima",
+      "city_name": "hammamet",
+      "stars_int": 5,
+      "macro_region": "cap_bon",
+      "stars_band": "5",
+      "scraped_at": "2026-05-13 11:06:10.689205+01:00",
+      "nights": 3,
+      "price": 371.70001220703125,
+      "boarding_canonical": "LOG",
+      "anomaly_score": -1.6798083332408278,
+      "is_anomaly": true
+    },
+    {
+      "hotel_name_normalized": "yocca hotel residence 4 ex lella halima",
+      "city_name": "hammamet",
+      "stars_int": 5,
+      "macro_region": "cap_bon",
+      "stars_band": "5",
+      "scraped_at": "2026-05-05 10:35:17.032076+01:00",
+      "nights": 5,
+      "price": 247.8000030517578,
+      "boarding_canonical": "LOG",
+      "anomaly_score": -1.6659706053975998,
+      "is_anomaly": true
+    }
+  ]
+}
