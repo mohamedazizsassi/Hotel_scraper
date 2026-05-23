@@ -76,12 +76,16 @@ IDENTIFIER_COLUMNS: tuple[str, ...] = (
 # ---------------------------------------------------------------------------
 
 TARGETS: tuple[str, ...] = (
-    "price",
-    "price_per_night",  # primary forecaster target
+    "price",            # primary forecaster target (log-transformed at training time)
+    "price_per_night",
     "sur_demande",
 )
 
-FORECASTER_TARGET: str = "price_per_night"
+# Locked 2026-05-20: forecaster trains on log(price) with `nights` as a feature.
+# NOT log1p(price_per_night) — price/nights bakes in a 1/nights artefact because
+# multi-night stays carry discounts. See ml/CLAUDE.md "Locked decisions".
+FORECASTER_TARGET: str = "price"
+FORECASTER_TARGET_TRANSFORM: str = "log"
 
 
 # ---------------------------------------------------------------------------

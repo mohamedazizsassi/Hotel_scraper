@@ -1,0 +1,200 @@
+{
+  "date": "2026-05-21",
+  "parquet": "artifacts\\cache\\sample_5M_seed42.parquet",
+  "split": "hotel_wise",
+  "seed": 42,
+  "n_train": 3490669,
+  "n_val": 699077,
+  "n_test": 810254,
+  "target": "price",
+  "target_transform": "log",
+  "metric_scale": "TND (raw price after exp)",
+  "baselines": [
+    {
+      "name": "global_median",
+      "fit_seconds": 0.03,
+      "predict_seconds": 0.0,
+      "mae_tnd": 983.02,
+      "mape_pct": 119.04,
+      "wape_pct": 61.93
+    },
+    {
+      "name": "group_median",
+      "fit_seconds": 3.19,
+      "predict_seconds": 0.4,
+      "mae_tnd": 702.7,
+      "mape_pct": 51.27,
+      "wape_pct": 44.27
+    },
+    {
+      "name": "competitor_median",
+      "fit_seconds": 0.03,
+      "predict_seconds": 0.04,
+      "mae_tnd": 1124.53,
+      "mape_pct": 62.31,
+      "wape_pct": 70.85
+    },
+    {
+      "name": "linear_hedonic",
+      "fit_seconds": 23.0,
+      "predict_seconds": 3.75,
+      "mae_tnd": 596.88,
+      "mape_pct": 42.62,
+      "wape_pct": 37.6
+    }
+  ],
+  "per_segment_wape": {
+    "global_median": {
+      "by_macro_region": {
+        "sahel": {
+          "n": 230317,
+          "wape_pct": 67.57
+        },
+        "cap_bon": {
+          "n": 260419,
+          "wape_pct": 61.47
+        },
+        "djerba": {
+          "n": 99104,
+          "wape_pct": 57.08
+        },
+        "tunis_nord": {
+          "n": 177667,
+          "wape_pct": 60.66
+        },
+        "sud": {
+          "n": 42747,
+          "wape_pct": 63.09
+        }
+      },
+      "by_stars_band": {
+        "3": {
+          "n": 84398,
+          "wape_pct": 82.08
+        },
+        "5": {
+          "n": 272624,
+          "wape_pct": 59.25
+        },
+        "4": {
+          "n": 453232,
+          "wape_pct": 62.08
+        }
+      }
+    },
+    "group_median": {
+      "by_macro_region": {
+        "sahel": {
+          "n": 230317,
+          "wape_pct": 35.16
+        },
+        "cap_bon": {
+          "n": 260419,
+          "wape_pct": 35.86
+        },
+        "djerba": {
+          "n": 99104,
+          "wape_pct": 29.31
+        },
+        "tunis_nord": {
+          "n": 177667,
+          "wape_pct": 47.97
+        },
+        "sud": {
+          "n": 42747,
+          "wape_pct": 153.49
+        }
+      },
+      "by_stars_band": {
+        "3": {
+          "n": 84398,
+          "wape_pct": 37.34
+        },
+        "5": {
+          "n": 272624,
+          "wape_pct": 55.94
+        },
+        "4": {
+          "n": 453232,
+          "wape_pct": 33.91
+        }
+      }
+    },
+    "competitor_median": {
+      "by_macro_region": {
+        "sahel": {
+          "n": 230317,
+          "wape_pct": 66.49
+        },
+        "cap_bon": {
+          "n": 260419,
+          "wape_pct": 68.13
+        },
+        "djerba": {
+          "n": 99104,
+          "wape_pct": 71.87
+        },
+        "tunis_nord": {
+          "n": 177667,
+          "wape_pct": 75.94
+        },
+        "sud": {
+          "n": 42747,
+          "wape_pct": 69.34
+        }
+      },
+      "by_stars_band": {
+        "3": {
+          "n": 84398,
+          "wape_pct": 76.34
+        },
+        "5": {
+          "n": 272624,
+          "wape_pct": 70.91
+        },
+        "4": {
+          "n": 453232,
+          "wape_pct": 70.12
+        }
+      }
+    },
+    "linear_hedonic": {
+      "by_macro_region": {
+        "sahel": {
+          "n": 230317,
+          "wape_pct": 41.18
+        },
+        "cap_bon": {
+          "n": 260419,
+          "wape_pct": 39.68
+        },
+        "djerba": {
+          "n": 99104,
+          "wape_pct": 29.58
+        },
+        "tunis_nord": {
+          "n": 177667,
+          "wape_pct": 31.96
+        },
+        "sud": {
+          "n": 42747,
+          "wape_pct": 70.54
+        }
+      },
+      "by_stars_band": {
+        "3": {
+          "n": 84398,
+          "wape_pct": 30.68
+        },
+        "5": {
+          "n": 272624,
+          "wape_pct": 44.82
+        },
+        "4": {
+          "n": 453232,
+          "wape_pct": 31.52
+        }
+      }
+    }
+  }
+}

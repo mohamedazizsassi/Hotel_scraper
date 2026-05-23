@@ -20,6 +20,10 @@ scraper/_*.log
 
 # ML artifacts
 ml/artifacts/*.parquet
+ml/artifacts/cache/
+# Trained model dumps (LightGBM booster .txt files + per-run metadata).
+# Reproducible from code + seed; not worth tracking in git.
+ml/models/forecasting/lgbm_quantile_*/
 
 # Logs
 *.log

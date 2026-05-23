@@ -138,6 +138,20 @@ def test_assert_no_leakage_silent_on_clean_forecaster_cols():
 
 
 # ---------------------------------------------------------------------------
+# Forecaster target constants reflect the locked decision (2026-05-20):
+# log(price) with `nights` as a feature, NOT log1p(price_per_night).
+# ---------------------------------------------------------------------------
+
+def test_forecaster_target_is_price():
+    assert mfs.FORECASTER_TARGET == "price"
+    assert mfs.FORECASTER_TARGET_TRANSFORM == "log"
+
+
+def test_nights_is_a_forecaster_feature():
+    assert "nights" in mfs.FORECASTER_FEATURES
+
+
+# ---------------------------------------------------------------------------
 # Test 5: POSTGRES_SERVING_COLUMNS ⊆ assembled frame columns
 # ---------------------------------------------------------------------------
 
