@@ -1,0 +1,89 @@
+{
+  "split": "time_wise",
+  "n_train": 3500000,
+  "n_val": 250000,
+  "n_test": 1000000,
+  "fit_seconds": 5197.95,
+  "predict_seconds": 799.75,
+  "best_iterations": {
+    "0.1": 5000,
+    "0.5": 5000,
+    "0.9": 5000
+  },
+  "point_metrics_q50_tnd": {
+    "mae_tnd": 248.31,
+    "mape_pct": 13.63,
+    "wape_pct": 13.24
+  },
+  "pinball_loss_log": {
+    "q10": 0.03417,
+    "q50": 0.06682,
+    "q90": 0.03567
+  },
+  "pinball_loss_tnd": {
+    "q10": 54.12,
+    "q50": 124.15,
+    "q90": 75.53
+  },
+  "interval_coverage_80": 0.5746,
+  "interval_coverage_80_calibrated": 0.7676,
+  "conformal_c_log": 0.05029,
+  "conformal_n_cal": 250000,
+  "quantile_crossing_rate": {
+    "q10_above_q50": 0.0771,
+    "q50_above_q90": 0.0863
+  },
+  "gate": {
+    "linear_hedonic_wape_pct": 29.5,
+    "lgbm_q50_wape_pct": 13.24,
+    "status": "PASS"
+  },
+  "per_segment_wape_q50": {
+    "by_macro_region": {
+      "sahel": {
+        "n": 327295,
+        "wape_pct": 13.07
+      },
+      "djerba": {
+        "n": 155663,
+        "wape_pct": 12.36
+      },
+      "tunis_nord": {
+        "n": 147273,
+        "wape_pct": 10.25
+      },
+      "cap_bon": {
+        "n": 295805,
+        "wape_pct": 15.87
+      },
+      "sud": {
+        "n": 73964,
+        "wape_pct": 9.71
+      }
+    },
+    "by_stars_band": {
+      "5": {
+        "n": 393690,
+        "wape_pct": 12.81
+      },
+      "4": {
+        "n": 517871,
+        "wape_pct": 14.07
+      },
+      "3": {
+        "n": 88307,
+        "wape_pct": 10.65
+      },
+      "low": {
+        "n": 132,
+        "wape_pct": 9.1
+      }
+    }
+  },
+  "model_dir": "models\\forecasting\\lgbm_quantile_2026-05-23\\time_wise",
+  "date": "2026-05-23",
+  "parquet": "artifacts\\cache\\sample_5M_seed42.parquet",
+  "target": "price",
+  "target_transform": "log",
+  "n_features": 55
+}
