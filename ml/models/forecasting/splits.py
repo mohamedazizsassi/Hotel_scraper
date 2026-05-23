@@ -21,6 +21,7 @@ import pandas as pd
 class SplitIndices(TypedDict):
     train: np.ndarray
     val: np.ndarray
+    cal: np.ndarray
     test: np.ndarray
 
 
@@ -37,21 +38,25 @@ def hotel_wise_split(
     seed: int = 42,
 ) -> SplitIndices:
     """
-    Partition rows by group (hotel) so no hotel appears in more than one bucket.
+    Partition rows by group (hotel) into four disjoint buckets: train, val,
+    cal, test. Val and cal each get half of val_frac. Test gets test_frac.
+    Train gets the remainder. Same seed + same groups → byte-identical split.
 
     Parameters
     ----------
     groups:
         Per-row group label (typically hotel_name_normalized). Length = n_rows.
     test_frac, val_frac:
-        Target fraction of HOTELS (not rows) assigned to test / val. Train gets
-        the remainder. Realised row fractions will be approximate.
+        Target fraction of HOTELS (not rows) assigned to test and to val+cal
+        combined. Val and cal each receive val_frac / 2. Train gets the
+        remainder. Realised row fractions will be approximate.
     seed:
         Determines the hash. Same seed + same groups → byte-identical split.
 
     Returns
     -------
-    SplitIndices: integer-position arrays into `groups`.
+    SplitIndices: integer-position arrays into `groups`, with keys
+                  {train, val, cal, test}.
     """
     if not 0.0 < test_frac < 1.0:
         raise ValueError(f"test_frac must be in (0, 1), got {test_frac}")
@@ -62,23 +67,24 @@ def hotel_wise_split(
 
     unique_hotels = groups.dropna().unique()
     hotel_to_h = {h: _hash_unit(str(h), seed) for h in unique_hotels}
-    # Bucket boundaries on the unit interval.
+    half_val = val_frac / 2.0
     test_hi = test_frac
-    val_hi = test_frac + val_frac
+    val_hi  = test_frac + half_val
+    cal_hi  = test_frac + val_frac
 
     bucket = groups.map(lambda h: hotel_to_h.get(h, np.nan))
-    train_mask = bucket >= val_hi
-    val_mask = (bucket >= test_hi) & (bucket < val_hi)
-    test_mask = bucket < test_hi
+    test_mask  = bucket < test_hi
+    val_mask   = (bucket >= test_hi) & (bucket < val_hi)
+    cal_mask   = (bucket >= val_hi)  & (bucket < cal_hi)
+    train_mask = bucket >= cal_hi
 
-    # Rows with NaN group (shouldn't happen on the cleaned frame) go to train
-    # silently — but warn via assertion that no NaN groups exist.
     assert groups.notna().all(), "hotel_wise_split: groups contains NaN"
 
     idx = np.arange(len(groups))
     return SplitIndices(
         train=idx[train_mask.to_numpy()],
         val=idx[val_mask.to_numpy()],
+        cal=idx[cal_mask.to_numpy()],
         test=idx[test_mask.to_numpy()],
     )
 
@@ -89,18 +95,20 @@ def time_wise_split(
     val_frac: float = 0.10,
 ) -> SplitIndices:
     """
-    Partition rows by time: train < val < test on `scraped_at` quantiles.
+    Partition rows by time: train < val < cal < test on `scraped_at` quantiles.
+    Cal sits between val and test (closest analogue to deployment time).
 
     Parameters
     ----------
     scraped_at:
         Per-row timestamp. Tz-aware is fine.
     test_frac, val_frac:
-        Tail fractions assigned to test (latest) and val (just before test).
+        Tail fractions assigned to test (latest) and to val+cal combined.
+        Val and cal each receive val_frac / 2 of rows.
 
     Returns
     -------
-    SplitIndices.
+    SplitIndices with keys {train, val, cal, test}.
     """
     if not 0.0 < test_frac < 1.0:
         raise ValueError(f"test_frac must be in (0, 1), got {test_frac}")
@@ -112,10 +120,13 @@ def time_wise_split(
 
     n = len(scraped_at)
     order = np.argsort(scraped_at.to_numpy(), kind="stable")
-    cut_val = int(round(n * (1.0 - test_frac - val_frac)))
+    half_val = val_frac / 2.0
+    cut_val  = int(round(n * (1.0 - test_frac - val_frac)))
+    cut_cal  = int(round(n * (1.0 - test_frac - half_val)))
     cut_test = int(round(n * (1.0 - test_frac)))
     return SplitIndices(
         train=np.sort(order[:cut_val]),
-        val=np.sort(order[cut_val:cut_test]),
-        test=np.sort(order[cut_test:]),
+        val  =np.sort(order[cut_val:cut_cal]),
+        cal  =np.sort(order[cut_cal:cut_test]),
+        test =np.sort(order[cut_test:]),
     )

@@ -43,7 +43,7 @@ def test_hotel_wise_no_hotel_appears_in_two_buckets():
 def test_hotel_wise_covers_all_rows():
     groups = _groups_frame()
     s = hotel_wise_split(groups, test_frac=0.2, val_frac=0.1, seed=42)
-    total = len(s["train"]) + len(s["val"]) + len(s["test"])
+    total = len(s["train"]) + len(s["val"]) + len(s["cal"]) + len(s["test"])
     assert total == len(groups)
 
 
@@ -70,11 +70,14 @@ def test_hotel_wise_seed_changes_split():
 
 def test_hotel_wise_proportions_within_tolerance():
     # 1000 hotels, evenly hashed → should be close to target fractions.
+    # val and cal each get half of val_frac (0.05 each).
     groups = pd.Series([f"h_{i:04d}" for i in range(1000) for _ in range(5)])
     s = hotel_wise_split(groups, test_frac=0.2, val_frac=0.1, seed=42)
     n = len(groups)
     assert abs(len(s["test"]) / n - 0.20) < 0.05
-    assert abs(len(s["val"]) / n - 0.10) < 0.05
+    assert abs((len(s["val"]) + len(s["cal"])) / n - 0.10) < 0.05
+    assert abs(len(s["val"]) / n - 0.05) < 0.03
+    assert abs(len(s["cal"]) / n - 0.05) < 0.03
 
 
 def test_hotel_wise_rejects_bad_fractions():
@@ -92,17 +95,15 @@ def test_hotel_wise_rejects_bad_fractions():
 def test_time_wise_strict_ordering():
     s_at = _scraped_at(1000)
     s = time_wise_split(s_at, test_frac=0.2, val_frac=0.1)
-    t_train = s_at.iloc[s["train"]]
-    t_val = s_at.iloc[s["val"]]
-    t_test = s_at.iloc[s["test"]]
-    assert t_train.max() <= t_val.min()
-    assert t_val.max() <= t_test.min()
+    assert s_at.iloc[s["train"]].max() <= s_at.iloc[s["val"]].min()
+    assert s_at.iloc[s["val"]].max()   <= s_at.iloc[s["cal"]].min()
+    assert s_at.iloc[s["cal"]].max()   <= s_at.iloc[s["test"]].min()
 
 
 def test_time_wise_covers_all_rows():
     s_at = _scraped_at(1000)
     s = time_wise_split(s_at, test_frac=0.2, val_frac=0.1)
-    total = len(s["train"]) + len(s["val"]) + len(s["test"])
+    total = len(s["train"]) + len(s["val"]) + len(s["cal"]) + len(s["test"])
     assert total == len(s_at)
 
 
@@ -110,4 +111,37 @@ def test_time_wise_proportions():
     s_at = _scraped_at(1000)
     s = time_wise_split(s_at, test_frac=0.2, val_frac=0.1)
     assert abs(len(s["test"]) / 1000 - 0.20) < 0.01
-    assert abs(len(s["val"]) / 1000 - 0.10) < 0.01
+    assert abs((len(s["val"]) + len(s["cal"])) / 1000 - 0.10) < 0.01
+
+
+def test_hotel_wise_split_returns_four_buckets():
+    groups = pd.Series([f"h{i:03d}" for i in range(500) for _ in range(10)])
+    idx = hotel_wise_split(groups, seed=42)
+    assert set(idx.keys()) == {"train", "val", "cal", "test"}
+    total = sum(len(idx[k]) for k in idx)
+    assert total == len(groups)
+    # disjoint
+    all_idx = np.concatenate([idx[k] for k in idx])
+    assert len(np.unique(all_idx)) == total
+
+
+def test_hotel_wise_split_val_and_cal_share_no_hotel():
+    groups = pd.Series([f"h{i:03d}" for i in range(500) for _ in range(10)])
+    idx = hotel_wise_split(groups, seed=42)
+    val_hotels = set(groups.iloc[idx["val"]])
+    cal_hotels = set(groups.iloc[idx["cal"]])
+    test_hotels = set(groups.iloc[idx["test"]])
+    train_hotels = set(groups.iloc[idx["train"]])
+    assert val_hotels.isdisjoint(cal_hotels)
+    assert val_hotels.isdisjoint(test_hotels)
+    assert cal_hotels.isdisjoint(test_hotels)
+    assert train_hotels.isdisjoint(val_hotels | cal_hotels | test_hotels)
+
+
+def test_time_wise_split_cal_strictly_between_val_and_test():
+    n = 10000
+    t = pd.Series(pd.date_range("2026-01-01", periods=n, freq="h"))
+    idx = time_wise_split(t)
+    assert t.iloc[idx["val"]].max()  < t.iloc[idx["cal"]].min()
+    assert t.iloc[idx["cal"]].max()  < t.iloc[idx["test"]].min()
+    assert t.iloc[idx["train"]].max() < t.iloc[idx["val"]].min()
