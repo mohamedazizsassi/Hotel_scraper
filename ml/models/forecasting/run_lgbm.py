@@ -25,6 +25,7 @@ import pandas as pd
 import pyarrow.parquet as pq
 
 from feature_engineering.model_feature_sets import FORECASTER_FEATURES, FORECASTER_TARGET
+from models.forecasting.conformal import ConformalQuantileCalibrator
 from models.forecasting.data import categorical_feature_names, prepare_xy
 from models.forecasting.lgbm_quantile import LGBMQuantileForecaster
 from models.forecasting.metrics import coverage, mae, mape, pinball_loss, wape
@@ -101,6 +102,23 @@ def _eval_split(
     model_dir = out_models_dir / f"{split_name}"
     model.save(model_dir)
 
+    # Fit conformal calibrator on the cal split (CQR, Romano et al 2019).
+    # Calibrator widens raw q10/q90 so empirical coverage hits the nominal 0.80.
+    cal_i = idx["cal"]
+    X_cal, y_cal = X.iloc[cal_i], y[cal_i]
+    log.info("%s: fitting conformal calibrator on n_cal=%d", split_name, len(cal_i))
+    t0 = time.time()
+    preds_cal_log = model.predict(X_cal)
+    calibrator = ConformalQuantileCalibrator(alpha=0.20).fit(
+        preds_cal_log["q10"], preds_cal_log["q90"], y_cal,
+    )
+    cal_fit_s = time.time() - t0
+    log.info(
+        "%s: calibrator c_=%.5f (log-scale), n_cal=%d, fit %.1fs",
+        split_name, calibrator.c_, calibrator.n_cal_, cal_fit_s,
+    )
+    calibrator.save(model_dir / "conformal.json")
+
     t0 = time.time()
     preds_log = model.predict(X_test)
     pred_s = time.time() - t0
@@ -131,6 +149,12 @@ def _eval_split(
 
     # Interval calibration — target coverage ≈ 0.80 for [q10, q90]
     cov_80 = float(coverage(y_test, q10_log, q90_log))  # log-space is monotonic
+    q10_cal_log, q90_cal_log = calibrator.apply(q10_log, q90_log)
+    cov_80_calibrated = float(coverage(y_test, q10_cal_log, q90_cal_log))
+    log.info(
+        "%s: coverage80 raw=%.3f → calibrated=%.3f (target 0.80)",
+        split_name, cov_80, cov_80_calibrated,
+    )
     # Quantile crossing diagnostic
     crossing_q10_q50 = float(np.mean(q10_log > q50_log))
     crossing_q50_q90 = float(np.mean(q50_log > q90_log))
@@ -160,6 +184,9 @@ def _eval_split(
         "pinball_loss_log": pinball_log,
         "pinball_loss_tnd": pinball_tnd,
         "interval_coverage_80": round(cov_80, 4),
+        "interval_coverage_80_calibrated": round(cov_80_calibrated, 4),
+        "conformal_c_log": round(calibrator.c_, 5),
+        "conformal_n_cal": calibrator.n_cal_,
         "quantile_crossing_rate": {
             "q10_above_q50": round(crossing_q10_q50, 4),
             "q50_above_q90": round(crossing_q50_q90, 4),
