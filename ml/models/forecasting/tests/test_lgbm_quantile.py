@@ -91,3 +91,24 @@ def test_save_and_metadata(tmp_path) -> None:
         qname = f"q{int(q * 100):02d}"
         assert (tmp_path / f"{qname}.txt").exists()
     assert (tmp_path / "metadata.json").exists()
+
+
+def test_forecaster_save_load_roundtrip(tmp_path):
+    """Train a tiny model, save, reload, ensure predictions match exactly."""
+    X, y = _toy_xy(n=500)
+    X_train, X_val = X.iloc[:400], X.iloc[400:]
+    y_train, y_val = y[:400], y[400:]
+
+    m = LGBMQuantileForecaster(
+        params=_tiny_params(),
+        num_boost_round=20,
+        early_stopping_rounds=5,
+        seed=0,
+    ).fit(X_train, y_train, X_val, y_val, categorical_features=["boarding_canonical"])
+    m.save(tmp_path)
+
+    m2 = LGBMQuantileForecaster.load(tmp_path)
+    preds_1 = m.predict(X_val)
+    preds_2 = m2.predict(X_val)
+    for q in ("q10", "q50", "q90"):
+        np.testing.assert_allclose(preds_1[q], preds_2[q])

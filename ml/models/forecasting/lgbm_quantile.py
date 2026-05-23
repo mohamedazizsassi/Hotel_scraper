@@ -197,3 +197,24 @@ class LGBMQuantileForecaster:
         (path / "metadata.json").write_text(json.dumps(meta, indent=2),
                                             encoding="utf-8")
         logger.info("saved boosters + metadata to %s", path)
+
+    @classmethod
+    def load(cls, model_dir: str | Path) -> "LGBMQuantileForecaster":
+        """Reconstruct a forecaster from a directory previously written by save()."""
+        path = Path(model_dir)
+        meta = json.loads((path / "metadata.json").read_text(encoding="utf-8"))
+        inst = cls(
+            params=meta["params"],
+            quantile_overrides={float(k.replace("q", "")) / 100: v
+                                for k, v in meta.get("quantile_overrides", {}).items()},
+            num_boost_round=meta["num_boost_round"],
+            early_stopping_rounds=meta["early_stopping_rounds"],
+            seed=meta["seed"],
+        )
+        inst.feature_names_ = list(meta["feature_names"])
+        inst.categorical_features_ = list(meta["categorical_features"])
+        for q in QUANTILES:
+            qname = f"q{int(q * 100):02d}"
+            inst.boosters_[q] = lgb.Booster(model_file=str(path / f"{qname}.txt"))
+            inst.best_iterations_[q] = int(meta["best_iterations"][qname])
+        return inst
