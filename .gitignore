@@ -37,6 +37,7 @@ Files for me/
 # Claude
 CLAUDE.md
 .claude/
+docs/
 
 # Environment files
 .env
