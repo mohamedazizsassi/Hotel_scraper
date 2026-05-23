@@ -1,0 +1,82 @@
+{
+  "split": "hotel_wise",
+  "n_train": 3490669,
+  "n_val": 699077,
+  "n_test": 810254,
+  "fit_seconds": 792.25,
+  "predict_seconds": 40.07,
+  "best_iterations": {
+    "0.1": 158,
+    "0.5": 1979,
+    "0.9": 65
+  },
+  "point_metrics_q50_tnd": {
+    "mae_tnd": 465.63,
+    "mape_pct": 33.16,
+    "wape_pct": 29.34
+  },
+  "pinball_loss_log": {
+    "q10": 0.08783,
+    "q50": 0.14579,
+    "q90": 0.07283
+  },
+  "pinball_loss_tnd": {
+    "q10": 104.88,
+    "q50": 232.82,
+    "q90": 137.61
+  },
+  "interval_coverage_80": 0.6545,
+  "quantile_crossing_rate": {
+    "q10_above_q50": 0.021,
+    "q50_above_q90": 0.0143
+  },
+  "gate": {
+    "linear_hedonic_wape_pct": 37.6,
+    "lgbm_q50_wape_pct": 29.34,
+    "status": "PASS"
+  },
+  "per_segment_wape_q50": {
+    "by_macro_region": {
+      "sahel": {
+        "n": 230317,
+        "wape_pct": 30.27
+      },
+      "cap_bon": {
+        "n": 260419,
+        "wape_pct": 29.07
+      },
+      "djerba": {
+        "n": 99104,
+        "wape_pct": 22.42
+      },
+      "tunis_nord": {
+        "n": 177667,
+        "wape_pct": 28.26
+      },
+      "sud": {
+        "n": 42747,
+        "wape_pct": 54.35
+      }
+    },
+    "by_stars_band": {
+      "3": {
+        "n": 84398,
+        "wape_pct": 27.49
+      },
+      "5": {
+        "n": 272624,
+        "wape_pct": 33.25
+      },
+      "4": {
+        "n": 453232,
+        "wape_pct": 25.8
+      }
+    }
+  },
+  "model_dir": "models\\forecasting\\lgbm_quantile_2026-05-22\\hotel_wise",
+  "date": "2026-05-22",
+  "parquet": "artifacts\\cache\\sample_5M_seed42.parquet",
+  "target": "price",
+  "target_transform": "log",
+  "n_features": 55
+}
