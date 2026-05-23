@@ -93,6 +93,7 @@ class ConformalQuantileCalibrator:
 
     # ------------------------------------------------------------------ io
     def save(self, path: str | Path) -> None:
+        """Persist the fitted calibrator (alpha, c_, alpha_fit_, n_cal_) to JSON."""
         Path(path).write_text(
             json.dumps(
                 {
@@ -108,6 +109,7 @@ class ConformalQuantileCalibrator:
 
     @classmethod
     def load(cls, path: str | Path) -> "ConformalQuantileCalibrator":
+        """Reconstruct a calibrator from a JSON file previously written by save()."""
         d = json.loads(Path(path).read_text(encoding="utf-8"))
         return cls(
             alpha=d["alpha"],
