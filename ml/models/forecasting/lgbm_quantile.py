@@ -203,10 +203,17 @@ class LGBMQuantileForecaster:
         """Reconstruct a forecaster from a directory previously written by save()."""
         path = Path(model_dir)
         meta = json.loads((path / "metadata.json").read_text(encoding="utf-8"))
+        quantile_overrides = {float(k.replace("q", "")) / 100: v
+                              for k, v in meta.get("quantile_overrides", {}).items()}
+        for q in quantile_overrides:
+            if not 0.0 < q < 1.0:
+                raise ValueError(
+                    f"load: quantile override key out of (0, 1): {q}. "
+                    f"metadata.json may be corrupt or hand-edited."
+                )
         inst = cls(
             params=meta["params"],
-            quantile_overrides={float(k.replace("q", "")) / 100: v
-                                for k, v in meta.get("quantile_overrides", {}).items()},
+            quantile_overrides=quantile_overrides,
             num_boost_round=meta["num_boost_round"],
             early_stopping_rounds=meta["early_stopping_rounds"],
             seed=meta["seed"],
