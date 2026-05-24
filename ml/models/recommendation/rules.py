@@ -197,20 +197,14 @@ def apply_rules(
     """
     primary: Recommendation | None = None
     extra_reasons: list[str] = []
-    primary_idx: int | None = None
 
-    # Determine where primary rules end if we're using DEFAULT_RULES.
-    num_primary = len(_PRIMARY_RULES) if rules is DEFAULT_RULES else len(rules)
-
-    for i, rule in enumerate(rules):
+    for rule in rules:
         out = rule(ctx)
         if out is None:
             continue
         if primary is None:
             primary = out
-            primary_idx = i
-        elif i >= num_primary:
-            # Secondary rule: append reasons only.
+        else:
             extra_reasons.extend(out.reasons)
 
     if primary is None:
