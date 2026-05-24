@@ -49,7 +49,7 @@ class RowContext:
     peer_medium_count: int = 0
 
 
-@dataclass
+@dataclass(frozen=True)
 class Recommendation:
     """Direction, recommended price, and 1-3 supporting reasons.
 
@@ -185,22 +185,19 @@ def apply_rules(
     """
     Evaluate `rules` in order against `ctx` and produce a single Recommendation.
 
-    Rules are split into primary (direction-setting) and secondary (reason-only).
-    The first primary rule to fire fixes the direction and recommended price.
-    All secondary rules that fire contribute their reasons.
-
-    When rules=DEFAULT_RULES, the split is at len(_PRIMARY_RULES).
-    When rules is a custom list (e.g., DEFAULT_RULES[:3]), we evaluate all
-    rules in order as primaries; the first to fire wins.
+    The first rule that returns a Recommendation fixes the direction and the
+    recommended price. Later rules that also return a Recommendation contribute
+    their reasons only; their direction and recommended_price_tnd are ignored.
 
     Guarantees:
     - The returned Recommendation always has at least one reason.
     - The returned direction is in {raise, hold, lower}.
-    - With DEFAULT_RULES, the first three primary rules partition the row space
-      and the default in-band rule guarantees coverage.
+    - With DEFAULT_RULES, exactly one primary rule fires (mutually exclusive
+      predicates) and the default in-band rule guarantees coverage.
     """
     primary: Recommendation | None = None
     extra_reasons: list[str] = []
+    primary_idx: int | None = None
 
     # Determine where primary rules end if we're using DEFAULT_RULES.
     num_primary = len(_PRIMARY_RULES) if rules is DEFAULT_RULES else len(rules)
@@ -209,16 +206,12 @@ def apply_rules(
         out = rule(ctx)
         if out is None:
             continue
-
-        if i < num_primary:
-            # Primary rule: sets direction and price.
-            if primary is None:
-                primary = out
-            # Once primary is set, skip remaining primary rules.
-        else:
+        if primary is None:
+            primary = out
+            primary_idx = i
+        elif i >= num_primary:
             # Secondary rule: append reasons only.
-            if primary is not None:
-                extra_reasons.extend(out.reasons)
+            extra_reasons.extend(out.reasons)
 
     if primary is None:
         raise RuntimeError(
