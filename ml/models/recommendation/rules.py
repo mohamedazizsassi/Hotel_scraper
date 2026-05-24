@@ -108,7 +108,13 @@ def _rule_above_band_lower(ctx: RowContext) -> Optional[Recommendation]:
 
 
 def _rule_in_band_hold(ctx: RowContext) -> Optional[Recommendation]:
-    # Default rule: always fires when neither below_band nor above_band did.
+    """Fire only when the current price is inside the calibrated 80% interval.
+
+    Mirrors the strict inequalities in the band rules: a row with
+    current_price == q10_cal or current_price == q90_cal counts as in-band.
+    """
+    if not (ctx.q10_cal_tnd <= ctx.current_price_tnd <= ctx.q90_cal_tnd):
+        return None
     reason = (
         f"current {ctx.current_price_tnd:.0f} TND is inside the calibrated "
         f"80% interval [{ctx.q10_cal_tnd:.0f}, {ctx.q90_cal_tnd:.0f}]; no action."
