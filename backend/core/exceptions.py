@@ -1,5 +1,5 @@
 # backend/core/exceptions.py
-from fastapi import Request
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 class AuthError(Exception):
@@ -18,7 +18,7 @@ class MLStoreNotReadyError(Exception):
     def __init__(self, detail: str = "ML models not loaded"):
         self.detail = detail
 
-def register_exception_handlers(app) -> None:
+def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AuthError)
     async def auth_error_handler(request: Request, exc: AuthError):
         return JSONResponse(status_code=401, content={"detail": exc.detail})
