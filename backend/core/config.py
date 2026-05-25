@@ -9,6 +9,6 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:4200"
     test_db_url: str = ""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", protected_namespaces=())
 
 settings = Settings()
