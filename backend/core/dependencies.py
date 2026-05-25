@@ -1,6 +1,7 @@
 # backend/core/dependencies.py
 from __future__ import annotations
 from typing import AsyncGenerator
+import uuid
 import jwt
 from fastapi import Depends, Header
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,6 +42,10 @@ async def get_current_user(
         raise AuthError("Invalid token")
 
     user_id = payload.get("sub")
+    try:
+        user_id = uuid.UUID(str(user_id))
+    except (ValueError, AttributeError):
+        raise AuthError("Invalid token subject")
     result = await db.execute(
         select(User).where(User.id == user_id, User.is_active.is_(True))
     )
