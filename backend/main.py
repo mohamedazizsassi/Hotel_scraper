@@ -44,6 +44,9 @@ async def health():
         "ml_store": "loaded" if _ml_store is not None else "not_loaded",
     }
 
-# Routers registered as each task completes:
-# from routers import auth
-# app.include_router(auth.router)
+from routers import auth, calendar, competitors, recommendations, anomalies
+app.include_router(auth.router)
+app.include_router(calendar.router)
+app.include_router(competitors.router)
+app.include_router(recommendations.router)
+app.include_router(anomalies.router)
