@@ -35,3 +35,27 @@ def test_save_load_round_trip(tmp_path):
     assert m2.feature_names_ == ["x1", "x2", "cat"]
     for k in before:
         assert np.allclose(before[k], after[k], atol=1e-5)
+
+
+def test_predict_invariant_to_incoming_category_order():
+    rng = np.random.default_rng(7)
+    n = 600
+    cat_vals = rng.choice(["a", "b", "c"], size=n)
+    effect = {"a": 0.0, "b": 1.0, "c": 2.0}          # category strongly drives y
+    base = np.array([effect[c] for c in cat_vals])
+    x1 = rng.normal(size=n)
+    y = 5.0 + base + 0.2 * x1 + rng.normal(scale=0.1, size=n)
+    X = pd.DataFrame({"x1": x1, "cat": pd.Categorical(cat_vals)})  # categories ["a","b","c"]
+
+    m = XGBoostQuantileForecaster(num_boost_round=60, seed=42)
+    m.fit(X.iloc[:450], y[:450], X.iloc[450:], y[450:], categorical_features=["cat"])
+    ref = m.predict(X.iloc[450:])
+
+    # Same rows/values, but the categorical column declares categories in a
+    # DIFFERENT order, as an independently-built frame would.
+    X2 = X.iloc[450:].copy()
+    X2["cat"] = pd.Categorical(X2["cat"].astype(str), categories=["c", "b", "a"])
+    out = m.predict(X2)
+
+    for k in ref:
+        assert np.allclose(ref[k], out[k]), f"{k} changed under reordered categories"

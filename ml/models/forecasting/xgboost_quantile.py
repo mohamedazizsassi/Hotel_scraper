@@ -39,19 +39,32 @@ class XGBoostQuantileForecaster:
     booster_: xgb.Booster | None = None
     feature_names_: list[str] = field(default_factory=list)
     categorical_features_: list[str] = field(default_factory=list)
+    category_levels_: dict = field(default_factory=dict)
     best_iteration_: int = 0
 
     def _dmatrix(self, X: pd.DataFrame, y=None) -> xgb.DMatrix:
         # Declared categoricals must be pandas category dtype for enable_categorical.
+        # When category_levels_ is populated (post-fit), we pin the exact training
+        # category set so the value→code mapping is always derived from the training
+        # vocabulary regardless of the incoming frame's declared category order.
         Xc = X.copy()
         for c in self.categorical_features_:
             if c in Xc.columns:
-                Xc[c] = Xc[c].astype("category")
+                if self.category_levels_.get(c):
+                    Xc[c] = pd.Categorical(Xc[c], categories=self.category_levels_[c])
+                else:
+                    Xc[c] = Xc[c].astype("category")
         return xgb.DMatrix(Xc, label=y, enable_categorical=True)
 
     def fit(self, X_train, y_train, X_val, y_val, categorical_features=None):
         self.feature_names_ = list(X_train.columns)
         self.categorical_features_ = list(categorical_features or [])
+        # Pin the training category vocabulary so _dmatrix always maps values to the
+        # same codes whether called during fit, predict, or after save/load.
+        self.category_levels_ = {
+            c: list(X_train[c].astype("category").cat.categories)
+            for c in self.categorical_features_ if c in X_train.columns
+        }
         params = {
             "objective": "reg:quantileerror",
             "quantile_alpha": np.array(QUANTILES, dtype=np.float64),
@@ -100,6 +113,7 @@ class XGBoostQuantileForecaster:
             "monotone": self.monotone,
             "feature_names": self.feature_names_,
             "categorical_features": self.categorical_features_,
+            "category_levels": self.category_levels_,
             "best_iteration": self.best_iteration_,
         }, indent=2), encoding="utf-8")
 
@@ -116,6 +130,7 @@ class XGBoostQuantileForecaster:
         )
         inst.feature_names_ = list(meta["feature_names"])
         inst.categorical_features_ = list(meta["categorical_features"])
+        inst.category_levels_ = dict(meta.get("category_levels", {}))
         inst.best_iteration_ = int(meta["best_iteration"])
         booster = xgb.Booster()
         booster.load_model(str(path / "model.json"))
