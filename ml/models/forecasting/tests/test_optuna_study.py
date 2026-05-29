@@ -31,3 +31,12 @@ def test_run_study_resumes(tmp_path):
     s2 = run_study("xgboost", X, y, idx, cats=["cat"], n_trials=1,
                    storage=storage, study_name="t", num_boost_round=10)
     assert len(s2.trials) >= 2   # resumed, not restarted
+
+
+def test_bakeoff_smoke_runs(tmp_path):
+    from models.forecasting.run_bakeoff import run_bakeoff_smoke
+    report = run_bakeoff_smoke(out_dir=tmp_path)
+    # one entry per model, each with a finite hotel-wise WAPE
+    assert set(report) == {"lightgbm", "catboost", "xgboost"}
+    for name in report:
+        assert np.isfinite(report[name]["point_metrics_q50_tnd"]["wape_pct"])
