@@ -28,10 +28,10 @@ async def get_ml_store() -> MLStore:
     return _ml_store
 
 async def get_current_user(
-    authorization: str = Header(...),
+    authorization: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    if not authorization.startswith("Bearer "):
+    if not authorization or not authorization.startswith("Bearer "):
         raise AuthError("Missing or malformed Authorization header")
     token = authorization.removeprefix("Bearer ")
     try:

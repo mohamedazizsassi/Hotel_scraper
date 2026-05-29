@@ -30,7 +30,7 @@ async def test_login_unknown_email(client):
 @pytest.mark.asyncio
 async def test_protected_endpoint_without_token(client):
     resp = await client.get("/manager/calendar")
-    assert resp.status_code == 422  # Authorization header is required
+    assert resp.status_code == 401  # missing credentials → unauthenticated
 
 @pytest.mark.asyncio
 async def test_protected_endpoint_with_invalid_token(client):

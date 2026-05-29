@@ -40,7 +40,7 @@ async def test_recommendations_schema_shape(client, db_session):
 @pytest.mark.asyncio
 async def test_recommendations_requires_auth(client):
     resp = await client.get("/manager/recommendations")
-    assert resp.status_code == 422
+    assert resp.status_code == 401
 
 @pytest.mark.asyncio
 async def test_recommendations_rejects_bad_token(client):
