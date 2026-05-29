@@ -40,3 +40,11 @@ def test_bakeoff_smoke_runs(tmp_path):
     assert set(report) == {"lightgbm", "catboost", "xgboost"}
     for name in report:
         assert np.isfinite(report[name]["point_metrics_q50_tnd"]["wape_pct"])
+
+
+def test_ablations_smoke_runs(tmp_path):
+    from models.forecasting.run_ablations import run_ablations_smoke
+    report = run_ablations_smoke(out_dir=tmp_path)
+    assert "data_scaling" in report and "feature_group_drop" in report
+    assert len(report["data_scaling"]) >= 2          # at least two sample sizes
+    assert all(np.isfinite(v["wape_pct"]) for v in report["data_scaling"].values())
