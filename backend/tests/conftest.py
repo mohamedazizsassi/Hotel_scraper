@@ -79,6 +79,10 @@ async def setup_test_db():
                 nights                int,
                 adults                int,
                 boarding_canonical    text,
+                room_base             text,
+                room_view             text,
+                room_tier             text,
+                room_occupancy        text,
                 price                 double precision,
                 price_per_night       double precision,
                 scraped_at            text,
@@ -89,11 +93,12 @@ async def setup_test_db():
         await conn.execute(text("""
             INSERT INTO hotel_features
               (hotel_name_normalized, city_name, stars_int, check_in, nights, adults,
-               boarding_canonical, price, price_per_night, scraped_at,
+               boarding_canonical, room_base, room_view, room_tier, room_occupancy,
+               price, price_per_night, scraped_at,
                peer_medium_median, peer_medium_count)
             VALUES
               ('hotel_manager_test', 'hammamet', 4, DATE '2026-07-01', 3, 2,
-               'BB', 1350.0, 450.0, '2026-05-18T10:00:00', 480.0, 8)
+               'BB', 'chambre', 'mer', '', 'double', 1350.0, 450.0, '2026-05-18T10:00:00', 480.0, 8)
         """))
         await conn.execute(text(
             "CREATE OR REPLACE VIEW hotel_features_full AS SELECT * FROM hotel_features"
