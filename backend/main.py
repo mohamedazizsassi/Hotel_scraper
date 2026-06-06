@@ -47,6 +47,7 @@ async def health():
 from routers import auth, calendar, competitors, recommendations, anomalies
 from routers.admin import hotels as admin_hotels
 from routers.admin import managers as admin_managers
+from routers.admin import assignments as admin_assignments
 app.include_router(auth.router)
 app.include_router(calendar.router)
 app.include_router(competitors.router)
@@ -54,3 +55,4 @@ app.include_router(recommendations.router)
 app.include_router(anomalies.router)
 app.include_router(admin_hotels.router)
 app.include_router(admin_managers.router)
+app.include_router(admin_assignments.router)
