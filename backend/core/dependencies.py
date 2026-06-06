@@ -70,3 +70,10 @@ async def get_current_manager(
     if assignment is None:
         raise ForbiddenError("No active hotel assignment for this manager")
     return user
+
+async def get_current_admin(
+    user: User = Depends(get_current_user),
+) -> User:
+    if user.role != "admin":
+        raise ForbiddenError("Admin role required")
+    return user

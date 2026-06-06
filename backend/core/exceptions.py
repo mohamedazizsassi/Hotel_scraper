@@ -18,6 +18,14 @@ class MLStoreNotReadyError(Exception):
     def __init__(self, detail: str = "ML models not loaded"):
         self.detail = detail
 
+class ConflictError(Exception):
+    def __init__(self, detail: str = "Conflict"):
+        self.detail = detail
+
+class BadRequestError(Exception):
+    def __init__(self, detail: str = "Bad request"):
+        self.detail = detail
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AuthError)
     async def auth_error_handler(request: Request, exc: AuthError):
@@ -34,3 +42,11 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(MLStoreNotReadyError)
     async def ml_store_error_handler(request: Request, exc: MLStoreNotReadyError):
         return JSONResponse(status_code=503, content={"detail": exc.detail})
+
+    @app.exception_handler(ConflictError)
+    async def conflict_error_handler(request: Request, exc: ConflictError):
+        return JSONResponse(status_code=409, content={"detail": exc.detail})
+
+    @app.exception_handler(BadRequestError)
+    async def bad_request_error_handler(request: Request, exc: BadRequestError):
+        return JSONResponse(status_code=400, content={"detail": exc.detail})

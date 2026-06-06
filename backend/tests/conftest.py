@@ -52,6 +52,13 @@ async def setup_test_db():
             f"INSERT INTO users (id, email, password_hash, full_name, role, is_active) "
             f"VALUES ('{uid}', 'manager@test.com', '{pw}', 'Test Manager', 'manager', true)"
         ))
+        # Seed admin user (for /admin/* tests)
+        admin_id = str(uuid.uuid4())
+        admin_pw = hash_password("adminpass")
+        await conn.execute(text(
+            f"INSERT INTO users (id, email, password_hash, full_name, role, is_active) "
+            f"VALUES ('{admin_id}', 'admin@test.com', '{admin_pw}', 'Test Admin', 'admin', true)"
+        ))
         # Seed assignment: manager → hotel_manager_test
         await conn.execute(text(
             f"INSERT INTO user_hotel_assignments (user_id, hotel_id, max_competitors, is_active) "
