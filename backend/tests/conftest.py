@@ -149,10 +149,18 @@ async def setup_test_db():
 @pytest_asyncio.fixture(loop_scope="function")
 async def db_session():
     engine = create_async_engine(settings.test_db_url, echo=False, poolclass=NullPool)
-    SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    async with SessionLocal() as session:
+    conn = await engine.connect()
+    trans = await conn.begin()
+    session = AsyncSession(
+        bind=conn, expire_on_commit=False, join_transaction_mode="create_savepoint")
+    try:
         yield session
-    await engine.dispose()
+    finally:
+        await session.close()
+        if trans.is_active:
+            await trans.rollback()
+        await conn.close()
+        await engine.dispose()
 
 def _make_mock_ml_store() -> MLStore:
     # No spec= : MLStore's attributes are dataclass fields set in __init__,
