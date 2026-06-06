@@ -1,8 +1,8 @@
 from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from schemas.admin_hotel import AdminHotelRow, DiscoverableHotel, HotelCreate
-from core.exceptions import ConflictError
+from schemas.admin_hotel import AdminHotelRow, DiscoverableHotel, HotelCreate, HotelUpdate
+from core.exceptions import ConflictError, NotFoundError
 
 _LIST_SQL = text("""
     SELECT ph.id,
@@ -95,3 +95,32 @@ async def create_hotel(db: AsyncSession, body: HotelCreate) -> AdminHotelRow:
     rows = (await db.execute(_LIST_SQL)).mappings().fetchall()
     created = next(r for r in rows if r["id"] == hotel_id)
     return AdminHotelRow(**dict(created))
+
+
+async def _get_hotel_row(db: AsyncSession, hotel_id: int) -> AdminHotelRow:
+    rows = (await db.execute(_LIST_SQL)).mappings().fetchall()
+    match = next((r for r in rows if r["id"] == hotel_id), None)
+    if match is None:
+        raise NotFoundError(f"Hotel {hotel_id} not found")
+    return AdminHotelRow(**dict(match))
+
+
+async def get_hotel(db: AsyncSession, hotel_id: int) -> AdminHotelRow:
+    return await _get_hotel_row(db, hotel_id)
+
+
+async def update_hotel(db: AsyncSession, hotel_id: int, body: HotelUpdate) -> AdminHotelRow:
+    fields = body.model_dump(exclude_unset=True)
+    if not fields:
+        return await _get_hotel_row(db, hotel_id)
+    exists = await db.scalar(text("SELECT 1 FROM platform_hotels WHERE id = :id"),
+                             {"id": hotel_id})
+    if not exists:
+        raise NotFoundError(f"Hotel {hotel_id} not found")
+    allowed = {"hotel_name_display", "stars_int", "is_active", "contact_email", "contact_phone"}
+    sets = ", ".join(f"{k} = :{k}" for k in fields if k in allowed)
+    params = {k: v for k, v in fields.items() if k in allowed}
+    params["id"] = hotel_id
+    await db.execute(text(f"UPDATE platform_hotels SET {sets} WHERE id = :id"), params)
+    await db.commit()
+    return await _get_hotel_row(db, hotel_id)

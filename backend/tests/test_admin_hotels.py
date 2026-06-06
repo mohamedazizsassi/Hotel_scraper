@@ -72,3 +72,37 @@ async def test_create_hotel_duplicate_conflicts(client, db_session):
     r = await client.post("/admin/hotels", json=payload,
                           headers={"Authorization": f"Bearer {tok}"})
     assert r.status_code == 409
+
+
+async def _hotel_id(client, db_session, name="hotel_comp_1"):
+    tok = await _admin_token(db_session)
+    r = await client.get("/admin/hotels", headers={"Authorization": f"Bearer {tok}"})
+    return next(h["id"] for h in r.json()["data"] if h["hotel_name_normalized"] == name)
+
+
+async def test_hotel_detail(client, db_session):
+    tok = await _admin_token(db_session)
+    hid = await _hotel_id(client, db_session)
+    r = await client.get(f"/admin/hotels/{hid}", headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 200
+    assert r.json()["hotel_name_normalized"] == "hotel_comp_1"
+
+
+async def test_hotel_detail_404(client, db_session):
+    tok = await _admin_token(db_session)
+    r = await client.get("/admin/hotels/999999", headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 404
+
+
+async def test_hotel_update(client, db_session):
+    tok = await _admin_token(db_session)
+    hid = await _hotel_id(client, db_session)
+    r = await client.patch(f"/admin/hotels/{hid}",
+                           json={"hotel_name_display": "Renamed", "is_active": False,
+                                 "contact_phone": "+216 99 999 999"},
+                           headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["hotel_name_display"] == "Renamed"
+    assert body["is_active"] is False
+    assert body["contact_phone"] == "+216 99 999 999"

@@ -37,3 +37,11 @@ class HotelCreate(BaseModel):
     contact_email: str | None = None
     contact_phone: str | None = None
     sources: list[str] = []
+
+
+class HotelUpdate(BaseModel):
+    hotel_name_display: str | None = None
+    stars_int: int | None = None
+    is_active: bool | None = None
+    contact_email: str | None = None
+    contact_phone: str | None = None
