@@ -21,4 +21,10 @@ class AssignmentCreate(BaseModel):
     max_competitors: int = 4
 
 
+class AssignmentUpdate(BaseModel):
+    hotel_id: int | None = None
+    max_competitors: int | None = None
+    is_active: bool | None = None
+
+
 AdminAssignmentListResponse = DataResponse[AdminAssignmentRow]

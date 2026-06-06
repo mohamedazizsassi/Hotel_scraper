@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.exceptions import NotFoundError, ConflictError
-from schemas.admin_assignment import AdminAssignmentRow, AssignmentCreate
+from schemas.admin_assignment import AdminAssignmentRow, AssignmentCreate, AssignmentUpdate
 
 _LIST_SQL = text("""
     SELECT uha.id,
@@ -32,6 +32,34 @@ async def _get_row(db: AsyncSession, assignment_id: int) -> AdminAssignmentRow:
     if m is None:
         raise NotFoundError(f"Assignment {assignment_id} not found")
     return AdminAssignmentRow(**dict(m))
+
+
+async def update_assignment(db: AsyncSession, assignment_id: int,
+                            body: AssignmentUpdate) -> AdminAssignmentRow:
+    exists = await db.scalar(
+        text("SELECT 1 FROM user_hotel_assignments WHERE id = :id"), {"id": assignment_id})
+    if not exists:
+        raise NotFoundError(f"Assignment {assignment_id} not found")
+    fields = body.model_dump(exclude_unset=True)
+    allowed = {"hotel_id", "max_competitors", "is_active"}
+    sets = ", ".join(f"{k} = :{k}" for k in fields if k in allowed)
+    if sets:
+        params = {k: v for k, v in fields.items() if k in allowed}
+        params["id"] = assignment_id
+        await db.execute(
+            text(f"UPDATE user_hotel_assignments SET {sets} WHERE id = :id"), params)
+        await db.commit()
+    return await _get_row(db, assignment_id)
+
+
+async def delete_assignment(db: AsyncSession, assignment_id: int) -> None:
+    exists = await db.scalar(
+        text("SELECT 1 FROM user_hotel_assignments WHERE id = :id"), {"id": assignment_id})
+    if not exists:
+        raise NotFoundError(f"Assignment {assignment_id} not found")
+    await db.execute(
+        text("DELETE FROM user_hotel_assignments WHERE id = :id"), {"id": assignment_id})
+    await db.commit()
 
 
 async def create_assignment(db: AsyncSession, body: AssignmentCreate) -> AdminAssignmentRow:

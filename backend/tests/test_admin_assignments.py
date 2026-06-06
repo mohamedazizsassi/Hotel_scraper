@@ -54,3 +54,38 @@ async def test_create_assignment_duplicate(client, db_session):
                           json={"user_id": uid, "hotel_id": hid},
                           headers={"Authorization": f"Bearer {tok}"})
     assert r.status_code == 409
+
+
+async def _assignment_id(client, db_session, email="manager@test.com"):
+    tok = await _admin_token(db_session)
+    r = await client.get("/admin/assignments", headers={"Authorization": f"Bearer {tok}"})
+    return next(a["id"] for a in r.json()["data"] if a["manager_email"] == email)
+
+
+async def test_update_assignment(client, db_session):
+    tok = await _admin_token(db_session)
+    aid = await _assignment_id(client, db_session)
+    new_hotel = await _hid(db_session, "hotel_comp_1")
+    r = await client.patch(f"/admin/assignments/{aid}",
+                           json={"hotel_id": new_hotel, "max_competitors": 2},
+                           headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 200
+    assert r.json()["hotel_name"] == "Hotel Comp 1"
+    assert r.json()["max_competitors"] == 2
+
+
+async def test_delete_assignment(client, db_session):
+    tok = await _admin_token(db_session)
+    aid = await _assignment_id(client, db_session)
+    r = await client.delete(f"/admin/assignments/{aid}",
+                            headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 204
+    lst = await client.get("/admin/assignments", headers={"Authorization": f"Bearer {tok}"})
+    assert all(a["id"] != aid for a in lst.json()["data"])
+
+
+async def test_update_assignment_404(client, db_session):
+    tok = await _admin_token(db_session)
+    r = await client.patch("/admin/assignments/999999", json={"max_competitors": 1},
+                           headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 404
