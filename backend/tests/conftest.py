@@ -107,6 +107,34 @@ async def setup_test_db():
               ('hotel_manager_test', 'hammamet', 4, DATE '2026-07-01', 3, 2,
                'BB', 'chambre', 'mer', '', 'double', 1350.0, 450.0, '2026-05-18T10:00:00', 480.0, 8)
         """))
+        # segment_dim (region source for admin hotel list); ML-owned in prod.
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS segment_dim (
+                city_name text, stars_int int, macro_region text,
+                stars_band text, market_segment_id int
+            )
+        """))
+        await conn.execute(text(
+            "INSERT INTO segment_dim (city_name, stars_int, macro_region, stars_band, market_segment_id) "
+            "VALUES ('hammamet', 4, 'cap_bon', '4-5', 1)"
+        ))
+        # A source link for a registered hotel
+        await conn.execute(text("""
+            INSERT INTO platform_hotel_sources (platform_hotel_id, source, source_hotel_name)
+            VALUES ((SELECT id FROM platform_hotels WHERE hotel_name_normalized='hotel_comp_1'),
+                    'promohotel', 'Hotel Comp 1')
+        """))
+        # A hotel present in features but NOT registered -> appears in /discoverable
+        await conn.execute(text("""
+            INSERT INTO hotel_features
+              (hotel_name_normalized, city_name, stars_int, check_in, nights, adults,
+               boarding_canonical, room_base, room_view, room_tier, room_occupancy,
+               price, price_per_night, scraped_at, peer_medium_median, peer_medium_count)
+            VALUES
+              ('hotel_unregistered', 'sousse', 3, DATE '2026-07-01', 2, 2,
+               'BB', 'chambre', 'mer', '', 'double', 600.0, 300.0,
+               '2026-05-18T10:00:00', 320.0, 5)
+        """))
         await conn.execute(text(
             "CREATE OR REPLACE VIEW hotel_features_full AS SELECT * FROM hotel_features"
         ))
@@ -114,6 +142,7 @@ async def setup_test_db():
     async with engine.begin() as conn:
         await conn.execute(text("DROP VIEW IF EXISTS hotel_features_full"))
         await conn.execute(text("DROP TABLE IF EXISTS hotel_features"))
+        await conn.execute(text("DROP TABLE IF EXISTS segment_dim"))
         await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 

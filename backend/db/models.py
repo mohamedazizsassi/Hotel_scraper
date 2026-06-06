@@ -72,3 +72,14 @@ class ScrapeRun(Base):
     ingested_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class PlatformHotelSource(Base):
+    __tablename__ = "platform_hotel_sources"
+    platform_hotel_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("platform_hotels.id"), primary_key=True)
+    source: Mapped[str] = mapped_column(String, primary_key=True)
+    source_hotel_name: Mapped[str] = mapped_column(String, nullable=False)
+    source_city_id: Mapped[Optional[int]] = mapped_column(Integer)
+    last_seen_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
