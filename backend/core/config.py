@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     model_dir: Path = Path("../ml/models/forecasting/lgbm_quantile_2026-05-23/hotel_wise")
     cors_origins: str = "http://localhost:4200"
     test_db_url: str = ""
+    mongo_uri: str = "mongodb://localhost:27017"
+    mongo_db: str = "hotel_scraper"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", protected_namespaces=())
 
