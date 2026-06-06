@@ -59,6 +59,13 @@ async def setup_test_db():
             f"INSERT INTO users (id, email, password_hash, full_name, role, is_active) "
             f"VALUES ('{admin_id}', 'admin@test.com', '{admin_pw}', 'Test Admin', 'admin', true)"
         ))
+        # Second manager, intentionally UNASSIGNED (for list + assignment tests)
+        mgr2_id = str(uuid.uuid4())
+        mgr2_pw = hash_password("testpass2")
+        await conn.execute(text(
+            f"INSERT INTO users (id, email, password_hash, full_name, role, is_active) "
+            f"VALUES ('{mgr2_id}', 'manager2@test.com', '{mgr2_pw}', 'Manager Two', 'manager', true)"
+        ))
         # Seed assignment: manager → hotel_manager_test
         await conn.execute(text(
             f"INSERT INTO user_hotel_assignments (user_id, hotel_id, max_competitors, is_active) "
