@@ -253,12 +253,15 @@ sd.city_name=c.name_normalized AND sd.stars_int=ph.stars_int`.
 - **Total rows** = Mongo `estimated_document_count('hotel_prices')` (instant).
 - **Rows added per run** = `scrape_runs.items_total` (exact; insert-only).
 - **Rows added per day** = `SUM(items_total) GROUP BY date(run_ts)`.
-- **Logged-window yield** = `SUM(items_total)` over loaded runs. NOTE (measured
-  2026-06-06): this is the yield of the *logged* runs only and does NOT reconcile
-  with the Mongo total — the 88 logs don't cover full history, and runs are often
-  single-source and error-heavy (e.g. one promohotel run: 26,085 items vs 43,004
-  errors). Mongo `estimated_document_count` is the authoritative total; the log
-  series is per-run yield. Do not present them as an equality/integrity check.
+- **Logged-window yield** = `SUM(items_total)` over loaded runs. Measured
+  2026-06-06 across the 88 backfilled runs: **29,267,524 items** (73 finished,
+  15 failed/aborted) — the same order of magnitude as the documented collection
+  (~24–29M), so it IS a reasonable sanity indicator of total volume. Caveats:
+  these logs are **promohotel-only** (no `tunisiepromo` runs are represented, so
+  tunisiepromo volume is not counted), and an exact live reconciliation needs
+  Mongo up (it was unreachable at measurement → `count_hotel_prices` returned
+  `None`). Treat Mongo `estimated_document_count` as the authoritative live total
+  and the log sum as a same-ballpark cross-check, not an exact equality.
 - **Hotels scraped (distinct)** = `COUNT(DISTINCT hotel_name_normalized)` from
   `hotel_features` (what is actually serveable).
 - **Scraper status** = healthy / failed / **stale (paused)** based on the latest

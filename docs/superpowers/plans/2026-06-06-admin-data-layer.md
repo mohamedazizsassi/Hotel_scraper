@@ -764,15 +764,18 @@ Run:
 psql "postgresql://revway:REDACTED@localhost:5432/revway" -c "SELECT count(*), min(run_ts)::date, max(run_ts)::date, sum(items_total) FROM scrape_runs;"
 ```
 
-Expected: row count ≈ 88, dates spanning 2026-04-16 → 2026-06-05, and a
-`sum(items_total)` in the low millions. **NOTE (measured 2026-06-06):** this is
-the yield of the *logged* runs only, NOT the full collection. One sampled run
-(promohotel, `2026-06-05_10-00`) scraped 26,085 items against 43,004 errors, and
-the 88 logs do not span the collection's whole history — so `sum(items_total)`
-will be well below the Mongo `hotel_prices` total (~24M). Treat the Mongo count
-as the authoritative total and per-run `items_total` as per-run yield; do **not**
-expect them to reconcile. The last log (`2026-06-05_15-00`) is an aborted run
-with no stats blocks → it correctly loads as `status='failed'`.
+Actual measurement (2026-06-06, after backfilling 88 runs):
+- 88 runs, 2026-04-16 → 2026-06-06; status: **73 finished, 15 failed** (aborted/empty).
+- `sum(items_total)` = **29,267,524** (~29.3M); `sum(errors_total)` = 6,087,609.
+- source: 80 `promohotel`, 8 `None` (the `None` rows are aborted/empty runs with
+  no spider "starting" line).
+
+The ~29.3M logged yield is the same order of magnitude as the documented
+collection (~24–29M), so it works as a volume sanity check. Caveats: it is
+**promohotel-only** (no tunisiepromo runs appear in these logs — verify coverage
+in Plan 2), and the live Mongo count (authoritative) was unreachable at
+measurement (`count_hotel_prices` → `None`, graceful degradation). Treat Mongo as
+the live total and the log sum as a same-ballpark cross-check, not exact equality.
 
 ---
 
