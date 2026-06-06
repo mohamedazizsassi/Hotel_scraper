@@ -27,3 +27,13 @@ class DiscoverableHotel(BaseModel):
 
 AdminHotelListResponse = DataResponse[AdminHotelRow]
 DiscoverableResponse = DataResponse[DiscoverableHotel]
+
+
+class HotelCreate(BaseModel):
+    hotel_name_normalized: str
+    hotel_name_display: str
+    city_name: str
+    stars_int: int | None = None
+    contact_email: str | None = None
+    contact_phone: str | None = None
+    sources: list[str] = []

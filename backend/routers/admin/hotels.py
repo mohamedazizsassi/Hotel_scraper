@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.dependencies import get_db, get_current_admin
 from db.models import User
-from schemas.admin_hotel import AdminHotelListResponse, DiscoverableResponse
-from services.admin_hotels import list_hotels, list_discoverable
+from schemas.admin_hotel import AdminHotelListResponse, AdminHotelRow, DiscoverableResponse, HotelCreate
+from services.admin_hotels import list_hotels, list_discoverable, create_hotel
 
 router = APIRouter(prefix="/admin/hotels", tags=["admin"])
 
@@ -24,3 +24,12 @@ async def hotels_discoverable(
 ):
     rows = await list_discoverable(db)
     return DiscoverableResponse(data=rows, count=len(rows))
+
+
+@router.post("", response_model=AdminHotelRow, status_code=status.HTTP_201_CREATED)
+async def hotels_create(
+    body: HotelCreate,
+    _: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    return await create_hotel(db, body)
