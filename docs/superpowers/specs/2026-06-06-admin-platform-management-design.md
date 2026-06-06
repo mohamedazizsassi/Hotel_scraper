@@ -85,6 +85,7 @@ dashboard in §5).
 | D8 | Hotel **detail views** + **Region** (derived from `segment_dim.macro_region`) | Cheap; no schema change for region |
 | D9 | Hotel **contact fields** (`contact_email`, `contact_phone`) added via migration | User selected; cosmetic but requested |
 | D10 | Soft-deactivate only; **no hard delete**; **email = username** | Safer (FKs/history); avoids redundant unique field |
+| D11 | Competitor selection is **admin-only** (manager view = read-only); admin sets each manager's 3–4 competitors at onboarding | User decision 2026-06-06; order = create manager → assign hotel → pick competitors; DB triggers enforce not-self + max cap |
 
 ---
 
@@ -163,6 +164,16 @@ One file per concern (mirrors existing layout):
   set `max_competitors`; 409 if manager already assigned).
 - `PATCH  /admin/assignments/{id}` — change hotel / max_competitors / is_active.
 - `DELETE /admin/assignments/{id}` — remove assignment.
+
+**competitors.py** (admin-only; manager view is read-only — D11)
+- `GET /admin/managers/{id}/competitors` — that manager's current selection.
+- `GET /admin/managers/{id}/selectable-competitors` — eligible pool = active
+  `platform_hotels` minus the manager's own assigned hotel.
+- `PUT /admin/managers/{id}/competitors` — replace the selection with an ordered
+  list of 1..`max_competitors` hotel ids (transactional: delete existing → insert
+  with `display_order` 1..N). Requires an active assignment (409 if none). DB
+  triggers enforce not-self + the cap as the backstop; the service pre-validates
+  for clean 400s.
 
 **monitoring.py**
 - `GET /admin/monitoring/summary` — `{ total_rows (Mongo), rows_added_today,
