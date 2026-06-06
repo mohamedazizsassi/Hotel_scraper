@@ -37,6 +37,8 @@ class PlatformHotel(Base):
     city_id: Mapped[int] = mapped_column(SmallInteger, ForeignKey("cities.id"))
     stars_int: Mapped[Optional[int]] = mapped_column(SmallInteger)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    contact_email: Mapped[Optional[str]] = mapped_column(String)
+    contact_phone: Mapped[Optional[str]] = mapped_column(String)
 
 
 class UserHotelAssignment(Base):
