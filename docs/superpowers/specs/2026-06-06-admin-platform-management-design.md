@@ -167,7 +167,7 @@ One file per concern (mirrors existing layout):
 **monitoring.py**
 - `GET /admin/monitoring/summary` — `{ total_rows (Mongo), rows_added_today,
   rows_added_last_run, latest_scrape_at, last_run_status, error_rate,
-  runs_count, hotels_scraped_distinct, integrity_logged_vs_mongo }`.
+  runs_count, hotels_scraped_distinct, logged_window_items }`.
 - `GET /admin/monitoring/runs?limit=N` — per-scrape: `{ run_ts, source,
   items_total (=rows added), errors_total, duration_s, status }`.
 - `GET /admin/monitoring/daily?days=N` — per-day rows-added rollup for the chart.
@@ -253,7 +253,12 @@ sd.city_name=c.name_normalized AND sd.stars_int=ph.stars_int`.
 - **Total rows** = Mongo `estimated_document_count('hotel_prices')` (instant).
 - **Rows added per run** = `scrape_runs.items_total` (exact; insert-only).
 - **Rows added per day** = `SUM(items_total) GROUP BY date(run_ts)`.
-- **Integrity cross-check** = `SUM(items_total)` vs Mongo total (≈ equal).
+- **Logged-window yield** = `SUM(items_total)` over loaded runs. NOTE (measured
+  2026-06-06): this is the yield of the *logged* runs only and does NOT reconcile
+  with the Mongo total — the 88 logs don't cover full history, and runs are often
+  single-source and error-heavy (e.g. one promohotel run: 26,085 items vs 43,004
+  errors). Mongo `estimated_document_count` is the authoritative total; the log
+  series is per-run yield. Do not present them as an equality/integrity check.
 - **Hotels scraped (distinct)** = `COUNT(DISTINCT hotel_name_normalized)` from
   `hotel_features` (what is actually serveable).
 - **Scraper status** = healthy / failed / **stale (paused)** based on the latest

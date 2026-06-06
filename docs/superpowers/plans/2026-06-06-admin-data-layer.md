@@ -755,9 +755,14 @@ psql "postgresql://revway:REDACTED@localhost:5432/revway" -c "SELECT count(*), m
 ```
 
 Expected: row count ≈ 88, dates spanning 2026-04-16 → 2026-06-05, and a
-`sum(items_total)` in the millions (this is the log-derived rows-added total;
-it should be in the same ballpark as the Mongo `hotel_prices` count — the
-integrity cross-check the dashboard will surface in Plan 2).
+`sum(items_total)` in the low millions. **NOTE (measured 2026-06-06):** this is
+the yield of the *logged* runs only, NOT the full collection. One sampled run
+(promohotel, `2026-06-05_10-00`) scraped 26,085 items against 43,004 errors, and
+the 88 logs do not span the collection's whole history — so `sum(items_total)`
+will be well below the Mongo `hotel_prices` total (~24M). Treat the Mongo count
+as the authoritative total and per-run `items_total` as per-run yield; do **not**
+expect them to reconcile. The last log (`2026-06-05_15-00`) is an aborted run
+with no stats blocks → it correctly loads as `status='failed'`.
 
 ---
 
