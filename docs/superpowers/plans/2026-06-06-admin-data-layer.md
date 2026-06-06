@@ -560,15 +560,21 @@ async def load_scrape_runs(logs_dir: Path, session: AsyncSession) -> int:
     return len(files)
 
 
-async def main() -> None:
+async def main(logs_dir: Path = DEFAULT_LOGS_DIR) -> None:
     async with AsyncSessionLocal() as session:
-        n = await load_scrape_runs(DEFAULT_LOGS_DIR, session)
-        print(f"Loaded/updated {n} scrape run logs from {DEFAULT_LOGS_DIR}")
+        n = await load_scrape_runs(logs_dir, session)
+        print(f"Loaded/updated {n} scrape run logs from {logs_dir}")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import sys
+    target = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_LOGS_DIR
+    asyncio.run(main(target))
 ```
+
+> Note: `main()` takes an optional logs-dir CLI argument because the real
+> `scraper/logs` lives outside this worktree (logs are not committed). Task 6
+> passes that path explicitly.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -742,8 +748,12 @@ INSERT errors on the PK — safe to ignore on re-apply.)
 
 - [ ] **Step 3: Backfill scrape_runs from the real logs**
 
-Run (from `backend/`, venv active): `python -m scripts.load_scrape_runs`
-Expected: `Loaded/updated 88 scrape run logs from ...\scraper\logs`
+The logs live in the **original tree** (not committed, so absent from the
+worktree). Pass that path explicitly:
+
+Run (from `backend/`, venv active):
+`python -m scripts.load_scrape_runs "C:\Users\ASUS\Desktop\PFE\revway\scraper\logs"`
+Expected: `Loaded/updated 88 scrape run logs from C:\...\scraper\logs`
 (the count equals the number of `run_*.log` files; ~88 at time of writing).
 
 - [ ] **Step 4: Spot-check the loaded data**
