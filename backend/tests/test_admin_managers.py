@@ -49,3 +49,49 @@ async def test_manager_detail_and_404(client, db_session):
     r404 = await client.get("/admin/managers/00000000-0000-0000-0000-000000000000",
                             headers={"Authorization": f"Bearer {tok}"})
     assert r404.status_code == 404
+
+
+async def test_create_manager(client, db_session):
+    tok = await _admin_token(db_session)
+    r = await client.post("/admin/managers",
+                          json={"email": "newmgr@test.com", "full_name": "New Mgr",
+                                "initial_password": "secret123"},
+                          headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["email"] == "newmgr@test.com"
+    assert body["assigned_hotel_id"] is None
+    assert "password_hash" not in body
+    login = await client.post("/auth/login",
+                              json={"email": "newmgr@test.com", "password": "secret123"})
+    assert login.status_code == 200
+
+
+async def test_create_manager_duplicate_email(client, db_session):
+    tok = await _admin_token(db_session)
+    r = await client.post("/admin/managers",
+                          json={"email": "manager@test.com", "full_name": "Dup",
+                                "initial_password": "x1234567"},
+                          headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 409
+
+
+async def test_update_manager(client, db_session):
+    tok = await _admin_token(db_session)
+    mid = await _manager_id(client, db_session, "manager2@test.com")
+    r = await client.patch(f"/admin/managers/{mid}",
+                           json={"full_name": "Renamed Two", "is_active": False},
+                           headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 200
+    assert r.json()["full_name"] == "Renamed Two"
+    assert r.json()["is_active"] is False
+
+
+async def test_reset_password(client, db_session):
+    tok = await _admin_token(db_session)
+    mid = await _manager_id(client, db_session, "manager2@test.com")
+    r = await client.post(f"/admin/managers/{mid}/reset-password",
+                          json={"new_password": "brandnew9"},
+                          headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 204
+    # With per-test isolation (Task 1), manager2 is fresh here regardless of other tests.

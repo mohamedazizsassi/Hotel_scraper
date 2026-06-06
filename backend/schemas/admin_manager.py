@@ -14,3 +14,19 @@ class AdminManagerRow(BaseModel):
 
 
 AdminManagerListResponse = DataResponse[AdminManagerRow]
+
+
+class ManagerCreate(BaseModel):
+    email: EmailStr
+    full_name: str | None = None
+    initial_password: str
+
+
+class ManagerUpdate(BaseModel):
+    email: EmailStr | None = None
+    full_name: str | None = None
+    is_active: bool | None = None
+
+
+class PasswordReset(BaseModel):
+    new_password: str
