@@ -1,0 +1,18 @@
+/node_modules
+/dist
+/.angular
+/out-tsc
+/coverage
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
