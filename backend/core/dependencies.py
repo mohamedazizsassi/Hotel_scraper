@@ -7,6 +7,7 @@ from fastapi import Depends, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from db.session import AsyncSessionLocal
+from db.mongo import get_mongo_db, count_hotel_prices
 from db.models import User, UserHotelAssignment
 from ml_store.store import MLStore
 from core.security import decode_access_token
@@ -77,3 +78,6 @@ async def get_current_admin(
     if user.role != "admin":
         raise ForbiddenError("Admin role required")
     return user
+
+async def get_hotel_prices_total() -> int | None:
+    return await count_hotel_prices(get_mongo_db())

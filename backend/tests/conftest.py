@@ -145,6 +145,16 @@ async def setup_test_db():
         await conn.execute(text(
             "CREATE OR REPLACE VIEW hotel_features_full AS SELECT * FROM hotel_features"
         ))
+        # scrape_runs sample (monitoring + alerts). 3 finished + 1 failed.
+        await conn.execute(text("""
+            INSERT INTO scrape_runs
+              (run_ts, log_filename, source, spiders_count, items_total, errors_total, duration_s, status)
+            VALUES
+              ('2026-06-01 10:00+00','run_2026-06-01_10-00.log','promohotel',200,25000,40000,700,'finished'),
+              ('2026-06-01 15:00+00','run_2026-06-01_15-00.log','promohotel',200,24000,41000,710,'finished'),
+              ('2026-06-02 10:00+00','run_2026-06-02_10-00.log','promohotel',200, 3000,42000,300,'finished'),
+              ('2026-06-02 15:00+00','run_2026-06-02_15-00.log', NULL,         0,    0,    0, NULL,'failed')
+        """))
     yield
     async with engine.begin() as conn:
         await conn.execute(text("DROP VIEW IF EXISTS hotel_features_full"))
