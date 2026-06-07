@@ -149,3 +149,137 @@ export interface DateRangeQuery {
   room_occupancy?: string;
   boarding_canonical?: string;
 }
+
+// --- Admin: hotels (backend/schemas/admin_hotel.py — AdminHotelRow / DiscoverableHotel / HotelCreate / HotelUpdate) ---
+export interface AdminHotelDto {
+  id: number;
+  hotel_name_normalized: string;
+  hotel_name_display: string;
+  city_name: string;
+  stars_int: number | null;
+  is_active: boolean;
+  region: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  sources: string;                    // e.g. "promohotel,tunisiepromo" — comma-joined, NOT a list
+  manager_id: string | null;           // null = unassigned
+  manager_name: string | null;
+  latest_scraped_at: string | null;
+}
+
+// NOTE: deliberately has NO hotel_name_display and NO source/sources field —
+// these candidates come straight off distinct hotel_features identities,
+// which only carry the normalized name. The display name gets chosen at
+// promote time (see HotelCreate below).
+export interface DiscoverableHotelDto {
+  hotel_name_normalized: string;
+  city_name: string;
+  stars_int: number | null;
+}
+
+export interface HotelCreateBody {
+  hotel_name_normalized: string;
+  hotel_name_display: string;
+  city_name: string;
+  stars_int?: number | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  sources?: string[];
+}
+
+export interface HotelUpdateBody {
+  hotel_name_display?: string | null;
+  stars_int?: number | null;
+  is_active?: boolean | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+}
+
+// --- Admin: managers (backend/schemas/admin_manager.py — AdminManagerRow / ManagerCreate / ManagerUpdate / PasswordReset) ---
+export interface AdminManagerDto {
+  id: string;
+  email: string;
+  full_name: string | null;
+  is_active: boolean;
+  last_login_at: string | null;
+  assigned_hotel_id: number | null;    // null = unassigned
+  assigned_hotel_name: string | null;
+}
+
+export interface ManagerCreateBody {
+  email: string;
+  full_name?: string | null;
+  initial_password: string;            // admin sets the manager's first password — there is no auto-generated invite flow
+}
+
+export interface ManagerUpdateBody {
+  email?: string | null;
+  full_name?: string | null;
+  is_active?: boolean | null;
+}
+
+// --- Admin: assignments (backend/schemas/admin_assignment.py — AdminAssignmentRow / AssignmentCreate / AssignmentUpdate) ---
+export interface AssignmentDto {
+  id: number;
+  user_id: string;
+  manager_email: string;
+  manager_name: string | null;
+  hotel_id: number;
+  hotel_name: string;
+  max_competitors: number;
+  is_active: boolean;
+}
+
+// --- Admin: competitors (backend/schemas/admin_competitor.py) ---
+export interface AdminCompetitorRowDto {
+  hotel_id: number;
+  hotel_name_display: string;
+  city_name: string;
+  stars_int: number | null;
+  display_order: number;
+}
+
+export interface SelectableHotelDto {
+  hotel_id: number;
+  hotel_name_display: string;
+  city_name: string;
+  stars_int: number | null;
+}
+
+// --- Admin: monitoring (backend/schemas/admin_monitoring.py) ---
+export interface MonitoringSummaryDto {
+  total_rows: number | null;
+  logged_window_items: number;
+  runs_count: number;
+  finished_runs: number;
+  failed_runs: number;
+  latest_scrape_at: string | null;
+  last_run_status: string | null;
+  last_run_items: number | null;
+  hotels_scraped_distinct: number;
+}
+
+export interface ScrapeRunDto {
+  run_ts: string;
+  log_filename: string;
+  source: string | null;
+  items_total: number;
+  errors_total: number;
+  duration_s: number | null;
+  status: string;
+}
+
+export interface DailyRollupDto {
+  day: string;
+  items_total: number;
+  runs: number;
+}
+
+// --- Admin: alerts (backend/schemas/admin_alert.py) ---
+export interface AdminAlertDto {
+  type: string;
+  severity: string;
+  message: string;
+  run_ts: string;
+  log_filename: string;
+}
