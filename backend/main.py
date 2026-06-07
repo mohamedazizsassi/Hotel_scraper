@@ -52,6 +52,7 @@ from routers.admin import managers as admin_managers
 from routers.admin import assignments as admin_assignments
 from routers.admin import competitors as admin_competitors
 from routers.admin import monitoring as admin_monitoring
+from routers.admin import alerts as admin_alerts
 app.include_router(auth.router)
 app.include_router(calendar.router)
 app.include_router(competitors.router)
@@ -62,3 +63,4 @@ app.include_router(admin_managers.router)
 app.include_router(admin_assignments.router)
 app.include_router(admin_competitors.router)
 app.include_router(admin_monitoring.router)
+app.include_router(admin_alerts.router)
