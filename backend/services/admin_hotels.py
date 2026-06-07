@@ -17,7 +17,7 @@ _LIST_SQL = text("""
            COALESCE(string_agg(DISTINCT phs.source, ',' ORDER BY phs.source), '') AS sources,
            u.id::text                                     AS manager_id,
            u.full_name                                    AS manager_name,
-           MAX(hf.scraped_at)::text                       AS latest_scraped_at
+           latest.scraped_at::text                        AS latest_scraped_at
     FROM platform_hotels ph
     JOIN cities c ON c.id = ph.city_id
     LEFT JOIN segment_dim sd
@@ -26,8 +26,14 @@ _LIST_SQL = text("""
            ON uha.hotel_id = ph.id AND uha.is_active = TRUE
     LEFT JOIN users u ON u.id = uha.user_id
     LEFT JOIN platform_hotel_sources phs ON phs.platform_hotel_id = ph.id
-    LEFT JOIN hotel_features hf ON hf.hotel_name_normalized = ph.hotel_name_normalized
-    GROUP BY ph.id, c.name_normalized, sd.macro_region, u.id, u.full_name
+    LEFT JOIN LATERAL (
+        SELECT hf.scraped_at
+        FROM hotel_features hf
+        WHERE hf.hotel_name_normalized = ph.hotel_name_normalized
+        ORDER BY hf.scraped_at DESC
+        LIMIT 1
+    ) latest ON TRUE
+    GROUP BY ph.id, c.name_normalized, sd.macro_region, u.id, u.full_name, latest.scraped_at
     ORDER BY ph.hotel_name_display
 """)
 
