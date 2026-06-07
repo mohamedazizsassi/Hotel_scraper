@@ -56,3 +56,54 @@ async def test_get_selectable_excludes_own_hotel(client, db_session):
     ids = {h["hotel_id"] for h in r.json()["data"]}
     assert own not in ids
     assert await _hid(db_session, "hotel_comp_1") in ids
+
+
+async def test_put_selection_replaces(client, db_session):
+    tok = await _admin_token(db_session)
+    uid = await _uid(db_session, "manager@test.com")
+    comp2 = await _hid(db_session, "hotel_comp_2")
+    r = await client.put(f"/admin/managers/{uid}/competitors",
+                         json={"hotel_ids": [comp2]},
+                         headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 200, r.text
+    rows = r.json()["data"]
+    assert [c["hotel_id"] for c in rows] == [comp2]
+    assert rows[0]["display_order"] == 1
+
+
+async def test_put_selection_rejects_own_hotel(client, db_session):
+    tok = await _admin_token(db_session)
+    uid = await _uid(db_session, "manager@test.com")
+    own = await _hid(db_session, "hotel_manager_test")
+    r = await client.put(f"/admin/managers/{uid}/competitors",
+                         json={"hotel_ids": [own]},
+                         headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 400
+
+
+async def test_put_selection_requires_assignment(client, db_session):
+    tok = await _admin_token(db_session)
+    uid = await _uid(db_session, "manager2@test.com")   # unassigned
+    comp1 = await _hid(db_session, "hotel_comp_1")
+    r = await client.put(f"/admin/managers/{uid}/competitors",
+                         json={"hotel_ids": [comp1]},
+                         headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 400
+
+
+async def test_put_selection_enforces_cap(client, db_session):
+    tok = await _admin_token(db_session)
+    # assign manager2 to hotel_comp_2 with max_competitors = 1
+    uid = await _uid(db_session, "manager2@test.com")
+    hcomp2 = await _hid(db_session, "hotel_comp_2")
+    asg = await client.post("/admin/assignments",
+                            json={"user_id": uid, "hotel_id": hcomp2, "max_competitors": 1},
+                            headers={"Authorization": f"Bearer {tok}"})
+    assert asg.status_code == 201
+    # now try to set 2 competitors → exceeds cap of 1
+    own_excluded = [await _hid(db_session, "hotel_manager_test"),
+                    await _hid(db_session, "hotel_comp_1")]
+    r = await client.put(f"/admin/managers/{uid}/competitors",
+                         json={"hotel_ids": own_excluded},
+                         headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 400
