@@ -1,8 +1,10 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { KpiCardComponent } from '../../../shared/components/kpi-card/kpi-card.component';
 import { StatusPillComponent } from '../../../shared/components/status-pill/status-pill.component';
-import { HOTELS, MANAGERS, SCRAPER_RUNS } from '../../../core/data/mock';
+import { HOTELS, MANAGERS } from '../../../core/data/mock';
 import { DatePipe, DecimalPipe } from '@angular/common';
+import { ApiService } from '../../../core/api/api.service';
+import { MonitoringSummaryDto, ScrapeRunDto } from '../../../core/api/dto';
 
 @Component({
   selector: 'rw-admin-dashboard',
@@ -23,8 +25,17 @@ import { DatePipe, DecimalPipe } from '@angular/common';
     <div class="grid cols-4">
       <rw-kpi-card label="Hotels tracked" [value]="hotelsActive" sub="of {{hotels.length}} total" [delta]="2" [trend]="[300,302,305,308,310,311,312]" />
       <rw-kpi-card label="Active managers" [value]="managersActive" sub="signed in last 24h" [delta]="0" [trend]="[4,5,5,5,5,5,5]" />
-      <rw-kpi-card label="Rows ingested today" value="444,752" unit="" [delta]="-1.2" [trend]="[420,430,445,450,442,448,445]" />
-      <rw-kpi-card label="Scrape success" value="83" unit="%" [delta]="-12" [trend]="[100,100,100,100,86,83,83]" />
+      @if (summary(); as s) {
+        <rw-kpi-card label="Rows in collection"
+                     [value]="s.total_rows !== null ? ((s.total_rows | number) ?? '—') : '—'"
+                     sub="hotel_prices · Mongo" />
+        <rw-kpi-card label="Last run status"
+                     [value]="s.last_run_status ?? '—'"
+                     sub="{{ s.latest_scrape_at ? (s.latest_scrape_at | date:'MMM d, HH:mm') : 'no runs yet' }}" />
+      } @else {
+        <rw-kpi-card label="Rows in collection" [value]="monitoringLoading() ? '…' : '—'" />
+        <rw-kpi-card label="Last run status" [value]="monitoringLoading() ? '…' : '—'" />
+      }
     </div>
 
     <div class="grid cols-2" style="margin-top:16px;">
@@ -37,25 +48,27 @@ import { DatePipe, DecimalPipe } from '@angular/common';
           <thead>
             <tr>
               <th>Source</th><th>Started</th><th>Status</th>
-              <th class="num">Items</th><th class="num">Hotels</th>
+              <th class="num">Items</th><th class="num">Errors</th>
             </tr>
           </thead>
           <tbody>
-            @for (r of runs; track r.id) {
+            @for (r of runs(); track r.log_filename) {
               <tr>
-                <td><span class="mono small">{{ r.source }}</span></td>
-                <td><span class="small muted">{{ r.startedAt | date:'MMM d, HH:mm' }}</span></td>
+                <td><span class="mono small">{{ r.source ?? '—' }}</span></td>
+                <td><span class="small muted">{{ r.run_ts | date:'MMM d, HH:mm' }}</span></td>
                 <td>
                   @switch (r.status) {
-                    @case ('success') { <rw-status-pill tone="ok">success</rw-status-pill> }
-                    @case ('partial') { <rw-status-pill tone="warn">partial</rw-status-pill> }
-                    @case ('failed')  { <rw-status-pill tone="err">failed</rw-status-pill> }
-                    @case ('running') { <rw-status-pill tone="info">running</rw-status-pill> }
+                    @case ('finished') { <rw-status-pill tone="ok">finished</rw-status-pill> }
+                    @case ('partial')  { <rw-status-pill tone="warn">partial</rw-status-pill> }
+                    @case ('failed')   { <rw-status-pill tone="err">failed</rw-status-pill> }
+                    @default           { <rw-status-pill tone="muted">{{ r.status }}</rw-status-pill> }
                   }
                 </td>
-                <td class="num">{{ r.itemsScraped | number }}</td>
-                <td class="num">{{ r.hotelsCovered }}</td>
+                <td class="num mono">{{ r.items_total | number }}</td>
+                <td class="num mono">{{ r.errors_total | number }}</td>
               </tr>
+            } @empty {
+              <tr><td colspan="5" class="muted small" style="padding:14px;">No runs logged yet.</td></tr>
             }
           </tbody>
         </table>
@@ -84,11 +97,27 @@ import { DatePipe, DecimalPipe } from '@angular/common';
     .cov-val { font-size: 12px; color: var(--color-muted); text-align: right; }
   `],
 })
-export class AdminDashboardComponent {
+export class AdminDashboardComponent implements OnInit {
+  private api = inject(ApiService);
+
   hotels = HOTELS;
   hotelsActive = HOTELS.filter(h => h.active).length;
   managersActive = MANAGERS.filter(m => Date.parse(m.lastSeen) > Date.parse('2026-05-22T00:00:00Z')).length;
-  runs = SCRAPER_RUNS.slice(0, 6);
+
+  summary = signal<MonitoringSummaryDto | null>(null);
+  runs = signal<ScrapeRunDto[]>([]);
+  monitoringLoading = signal(true);
+
+  ngOnInit(): void {
+    this.api.getMonitoringSummary().subscribe({
+      next: s => this.summary.set(s),
+      complete: () => this.monitoringLoading.set(false),
+      error: () => this.monitoringLoading.set(false),
+    });
+    this.api.getMonitoringRuns(6).subscribe({
+      next: rows => this.runs.set(rows),
+    });
+  }
 
   coverage = (() => {
     const byCity = new Map<string, number>();
