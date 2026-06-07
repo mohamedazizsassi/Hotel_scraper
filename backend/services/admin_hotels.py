@@ -17,7 +17,7 @@ _LIST_SQL = text("""
            COALESCE(string_agg(DISTINCT phs.source, ',' ORDER BY phs.source), '') AS sources,
            u.id::text                                     AS manager_id,
            u.full_name                                    AS manager_name,
-           MAX(hf.scraped_at)                             AS latest_scraped_at
+           MAX(hf.scraped_at)::text                       AS latest_scraped_at
     FROM platform_hotels ph
     JOIN cities c ON c.id = ph.city_id
     LEFT JOIN segment_dim sd
