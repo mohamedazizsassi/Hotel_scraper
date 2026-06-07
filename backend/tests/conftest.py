@@ -52,6 +52,20 @@ async def setup_test_db():
             f"INSERT INTO users (id, email, password_hash, full_name, role, is_active) "
             f"VALUES ('{uid}', 'manager@test.com', '{pw}', 'Test Manager', 'manager', true)"
         ))
+        # Seed admin user (for /admin/* tests)
+        admin_id = str(uuid.uuid4())
+        admin_pw = hash_password("adminpass")
+        await conn.execute(text(
+            f"INSERT INTO users (id, email, password_hash, full_name, role, is_active) "
+            f"VALUES ('{admin_id}', 'admin@test.com', '{admin_pw}', 'Test Admin', 'admin', true)"
+        ))
+        # Second manager, intentionally UNASSIGNED (for list + assignment tests)
+        mgr2_id = str(uuid.uuid4())
+        mgr2_pw = hash_password("testpass2")
+        await conn.execute(text(
+            f"INSERT INTO users (id, email, password_hash, full_name, role, is_active) "
+            f"VALUES ('{mgr2_id}', 'manager2@test.com', '{mgr2_pw}', 'Manager Two', 'manager', true)"
+        ))
         # Seed assignment: manager → hotel_manager_test
         await conn.execute(text(
             f"INSERT INTO user_hotel_assignments (user_id, hotel_id, max_competitors, is_active) "
@@ -100,23 +114,70 @@ async def setup_test_db():
               ('hotel_manager_test', 'hammamet', 4, DATE '2026-07-01', 3, 2,
                'BB', 'chambre', 'mer', '', 'double', 1350.0, 450.0, '2026-05-18T10:00:00', 480.0, 8)
         """))
+        # segment_dim (region source for admin hotel list); ML-owned in prod.
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS segment_dim (
+                city_name text, stars_int int, macro_region text,
+                stars_band text, market_segment_id int
+            )
+        """))
+        await conn.execute(text(
+            "INSERT INTO segment_dim (city_name, stars_int, macro_region, stars_band, market_segment_id) "
+            "VALUES ('hammamet', 4, 'cap_bon', '4-5', 1)"
+        ))
+        # A source link for a registered hotel
+        await conn.execute(text("""
+            INSERT INTO platform_hotel_sources (platform_hotel_id, source, source_hotel_name)
+            VALUES ((SELECT id FROM platform_hotels WHERE hotel_name_normalized='hotel_comp_1'),
+                    'promohotel', 'Hotel Comp 1')
+        """))
+        # A hotel present in features but NOT registered -> appears in /discoverable
+        await conn.execute(text("""
+            INSERT INTO hotel_features
+              (hotel_name_normalized, city_name, stars_int, check_in, nights, adults,
+               boarding_canonical, room_base, room_view, room_tier, room_occupancy,
+               price, price_per_night, scraped_at, peer_medium_median, peer_medium_count)
+            VALUES
+              ('hotel_unregistered', 'sousse', 3, DATE '2026-07-01', 2, 2,
+               'BB', 'chambre', 'mer', '', 'double', 600.0, 300.0,
+               '2026-05-18T10:00:00', 320.0, 5)
+        """))
         await conn.execute(text(
             "CREATE OR REPLACE VIEW hotel_features_full AS SELECT * FROM hotel_features"
         ))
+        # scrape_runs sample (monitoring + alerts). 3 finished + 1 failed.
+        await conn.execute(text("""
+            INSERT INTO scrape_runs
+              (run_ts, log_filename, source, spiders_count, items_total, errors_total, duration_s, status)
+            VALUES
+              ('2026-06-01 10:00+00','run_2026-06-01_10-00.log','promohotel',200,25000,40000,700,'finished'),
+              ('2026-06-01 15:00+00','run_2026-06-01_15-00.log','promohotel',200,24000,41000,710,'finished'),
+              ('2026-06-02 10:00+00','run_2026-06-02_10-00.log','promohotel',200, 3000,42000,300,'finished'),
+              ('2026-06-02 15:00+00','run_2026-06-02_15-00.log', NULL,         0,    0,    0, NULL,'failed')
+        """))
     yield
     async with engine.begin() as conn:
         await conn.execute(text("DROP VIEW IF EXISTS hotel_features_full"))
         await conn.execute(text("DROP TABLE IF EXISTS hotel_features"))
+        await conn.execute(text("DROP TABLE IF EXISTS segment_dim"))
         await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
 @pytest_asyncio.fixture(loop_scope="function")
 async def db_session():
     engine = create_async_engine(settings.test_db_url, echo=False, poolclass=NullPool)
-    SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    async with SessionLocal() as session:
+    conn = await engine.connect()
+    trans = await conn.begin()
+    session = AsyncSession(
+        bind=conn, expire_on_commit=False, join_transaction_mode="create_savepoint")
+    try:
         yield session
-    await engine.dispose()
+    finally:
+        await session.close()
+        if trans.is_active:
+            await trans.rollback()
+        await conn.close()
+        await engine.dispose()
 
 def _make_mock_ml_store() -> MLStore:
     # No spec= : MLStore's attributes are dataclass fields set in __init__,

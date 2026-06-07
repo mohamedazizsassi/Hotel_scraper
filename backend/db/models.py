@@ -2,7 +2,7 @@ from __future__ import annotations
 import uuid
 import datetime
 from typing import Optional
-from sqlalchemy import String, Boolean, Integer, SmallInteger, DateTime, ForeignKey
+from sqlalchemy import String, Boolean, Integer, SmallInteger, DateTime, ForeignKey, Numeric, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -37,6 +37,8 @@ class PlatformHotel(Base):
     city_id: Mapped[int] = mapped_column(SmallInteger, ForeignKey("cities.id"))
     stars_int: Mapped[Optional[int]] = mapped_column(SmallInteger)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    contact_email: Mapped[Optional[str]] = mapped_column(String)
+    contact_phone: Mapped[Optional[str]] = mapped_column(String)
 
 
 class UserHotelAssignment(Base):
@@ -54,3 +56,30 @@ class UserCompetitorSelection(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     hotel_id: Mapped[int] = mapped_column(Integer, ForeignKey("platform_hotels.id"))
     display_order: Mapped[int] = mapped_column(SmallInteger)
+
+
+class ScrapeRun(Base):
+    __tablename__ = "scrape_runs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_ts: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    log_filename: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    source: Mapped[Optional[str]] = mapped_column(String)
+    spiders_count: Mapped[int] = mapped_column(Integer, default=0)
+    items_total: Mapped[int] = mapped_column(Integer, default=0)
+    errors_total: Mapped[int] = mapped_column(Integer, default=0)
+    duration_s: Mapped[Optional[float]] = mapped_column(Numeric)
+    status: Mapped[str] = mapped_column(String, nullable=False)
+    ingested_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class PlatformHotelSource(Base):
+    __tablename__ = "platform_hotel_sources"
+    platform_hotel_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("platform_hotels.id"), primary_key=True)
+    source: Mapped[str] = mapped_column(String, primary_key=True)
+    source_hotel_name: Mapped[str] = mapped_column(String, nullable=False)
+    source_city_id: Mapped[Optional[int]] = mapped_column(Integer)
+    last_seen_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())

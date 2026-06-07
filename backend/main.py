@@ -23,6 +23,8 @@ async def lifespan(app: FastAPI):
         log.error("ML model load failed: %s — /health will report not_loaded", exc)
     yield
     log.info("Shutting down")
+    from db.mongo import close_mongo_client
+    close_mongo_client()
 
 app = FastAPI(title="RevWay API", version="0.1.0", lifespan=lifespan)
 
@@ -45,8 +47,20 @@ async def health():
     }
 
 from routers import auth, calendar, competitors, recommendations, anomalies
+from routers.admin import hotels as admin_hotels
+from routers.admin import managers as admin_managers
+from routers.admin import assignments as admin_assignments
+from routers.admin import competitors as admin_competitors
+from routers.admin import monitoring as admin_monitoring
+from routers.admin import alerts as admin_alerts
 app.include_router(auth.router)
 app.include_router(calendar.router)
 app.include_router(competitors.router)
 app.include_router(recommendations.router)
 app.include_router(anomalies.router)
+app.include_router(admin_hotels.router)
+app.include_router(admin_managers.router)
+app.include_router(admin_assignments.router)
+app.include_router(admin_competitors.router)
+app.include_router(admin_monitoring.router)
+app.include_router(admin_alerts.router)
