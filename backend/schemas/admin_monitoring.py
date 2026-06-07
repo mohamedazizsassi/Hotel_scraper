@@ -1,5 +1,6 @@
 from __future__ import annotations
 from pydantic import BaseModel
+from schemas.common import DataResponse
 
 
 class MonitoringSummary(BaseModel):
@@ -12,3 +13,23 @@ class MonitoringSummary(BaseModel):
     last_run_status: str | None
     last_run_items: int | None
     hotels_scraped_distinct: int
+
+
+class ScrapeRunRow(BaseModel):
+    run_ts: str
+    log_filename: str
+    source: str | None
+    items_total: int
+    errors_total: int
+    duration_s: float | None
+    status: str
+
+
+class DailyRow(BaseModel):
+    day: str
+    items_total: int
+    runs: int
+
+
+ScrapeRunListResponse = DataResponse[ScrapeRunRow]
+DailyResponse = DataResponse[DailyRow]

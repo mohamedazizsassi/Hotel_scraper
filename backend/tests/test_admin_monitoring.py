@@ -52,3 +52,28 @@ async def test_summary_total_null_when_mongo_down(client, db_session):
         assert r.json()["total_rows"] is None
     finally:
         app.dependency_overrides.pop(get_hotel_prices_total, None)
+
+
+async def test_runs(client, db_session):
+    tok = await _admin_token(db_session)
+    r = await client.get("/admin/monitoring/runs?limit=10",
+                         headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 200
+    rows = r.json()["data"]
+    assert len(rows) == 4
+    # newest first
+    assert rows[0]["log_filename"] == "run_2026-06-02_15-00.log"
+    for f in ("run_ts", "log_filename", "source", "items_total", "errors_total",
+              "duration_s", "status"):
+        assert f in rows[0]
+
+
+async def test_daily(client, db_session):
+    tok = await _admin_token(db_session)
+    r = await client.get("/admin/monitoring/daily?days=3650",
+                         headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 200
+    by_day = {d["day"]: d for d in r.json()["data"]}
+    assert by_day["2026-06-01"]["items_total"] == 49000   # 25000 + 24000
+    assert by_day["2026-06-01"]["runs"] == 2
+    assert by_day["2026-06-02"]["items_total"] == 3000
