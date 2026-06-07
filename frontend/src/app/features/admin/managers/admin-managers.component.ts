@@ -1,5 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { StatusPillComponent } from '../../../shared/components/status-pill/status-pill.component';
 import { ApiService } from '../../../core/api/api.service';
 import { AdminManagerDto, ManagerCreateBody, ManagerUpdateBody } from '../../../core/api/dto';
@@ -7,7 +8,7 @@ import { AdminManagerDto, ManagerCreateBody, ManagerUpdateBody } from '../../../
 @Component({
   selector: 'rw-admin-managers',
   standalone: true,
-  imports: [DatePipe, StatusPillComponent],
+  imports: [DatePipe, RouterLink, StatusPillComponent],
   template: `
     <div class="page-head">
       <div>
@@ -80,6 +81,7 @@ import { AdminManagerDto, ManagerCreateBody, ManagerUpdateBody } from '../../../
               </td>
               <td class="num">
                 <div class="row" style="gap: 6px; justify-content:flex-end;">
+                  <a class="btn ghost sm" [routerLink]="['/admin/managers', m.id, 'competitors']">Competitors &rarr;</a>
                   <button class="btn ghost sm" (click)="toggleEdit(m)">Edit</button>
                   <button class="btn ghost sm" (click)="toggleReset(m)">Reset password</button>
                 </div>

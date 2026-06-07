@@ -13,6 +13,7 @@ export const routes: Routes = [
       { path: 'dashboard', loadComponent: () => import('./features/admin/dashboard/admin-dashboard.component').then(m => m.AdminDashboardComponent) },
       { path: 'hotels',    loadComponent: () => import('./features/admin/hotels/admin-hotels.component').then(m => m.AdminHotelsComponent) },
       { path: 'managers',  loadComponent: () => import('./features/admin/managers/admin-managers.component').then(m => m.AdminManagersComponent) },
+      { path: 'managers/:id/competitors', loadComponent: () => import('./features/admin/managers/admin-manager-competitors.component').then(m => m.AdminManagerCompetitorsComponent) },
       { path: 'assignments', loadComponent: () => import('./features/admin/assignments/admin-assignments.component').then(m => m.AdminAssignmentsComponent) },
       { path: 'scrapers',  loadComponent: () => import('./features/admin/scrapers/admin-scrapers.component').then(m => m.AdminScrapersComponent) },
     ],
