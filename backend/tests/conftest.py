@@ -101,7 +101,20 @@ async def setup_test_db():
                 price_per_night       double precision,
                 scraped_at            text,
                 peer_medium_median    double precision,
-                peer_medium_count     int
+                peer_medium_count     int,
+                children                              int,
+                is_supplement_variant                 boolean,
+                has_free_view_upgrade                 boolean,
+                best_peer_granularity_used            text,
+                sur_demande_rate_city_stars_checkin   double precision,
+                days_until_checkin                    int,
+                is_weekend_checkin                    boolean,
+                is_ramadan                            boolean,
+                is_tunisia_public_holiday             boolean,
+                is_tunisia_school_holiday             boolean,
+                is_school_holiday_france              boolean,
+                is_school_holiday_germany             boolean,
+                is_school_holiday_uk                  boolean
             )
         """))
         await conn.execute(text("""
@@ -109,10 +122,16 @@ async def setup_test_db():
               (hotel_name_normalized, city_name, stars_int, check_in, nights, adults,
                boarding_canonical, room_base, room_view, room_tier, room_occupancy,
                price, price_per_night, scraped_at,
-               peer_medium_median, peer_medium_count)
+               peer_medium_median, peer_medium_count,
+               children, is_supplement_variant, has_free_view_upgrade,
+               best_peer_granularity_used, sur_demande_rate_city_stars_checkin,
+               days_until_checkin, is_weekend_checkin, is_ramadan,
+               is_tunisia_public_holiday, is_tunisia_school_holiday,
+               is_school_holiday_france, is_school_holiday_germany, is_school_holiday_uk)
             VALUES
               ('hotel_manager_test', 'hammamet', 4, DATE '2026-07-01', 3, 2,
-               'BB', 'chambre', 'mer', '', 'double', 1350.0, 450.0, '2026-05-18T10:00:00', 480.0, 8)
+               'BB', 'chambre', 'mer', '', 'double', 1350.0, 450.0, '2026-05-18T10:00:00', 480.0, 8,
+               2, false, false, 'city_stars', 0.1, 44, false, false, false, false, false, false, false)
         """))
         # segment_dim (region source for admin hotel list); ML-owned in prod.
         await conn.execute(text("""

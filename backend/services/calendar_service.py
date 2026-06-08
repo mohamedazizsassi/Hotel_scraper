@@ -35,9 +35,9 @@ async def get_calendar_options(user: User, db: AsyncSession) -> CalendarOptions:
 
     scrape_dates = [
         str(r[0]) for r in (await db.execute(text("""
-            SELECT DISTINCT scrape_date FROM hotel_features_full
+            SELECT DISTINCT scraped_at FROM hotel_features_full
             WHERE hotel_name_normalized = :hotel_name
-            ORDER BY scrape_date DESC
+            ORDER BY scraped_at DESC
         """), p)).fetchall()
     ]
 
@@ -162,7 +162,9 @@ async def get_calendar(
             city_name=str(r["city_name"]),
             stars_int=int(r["stars_int"]) if pd.notna(r["stars_int"]) else None,
             check_in=r["check_in"],
-            scrape_date=str(r["scrape_date"]),
+            # hotel_features_full has no scrape_date column; scraped_at is an
+            # ISO-string timestamp (project convention) — take its date portion.
+            scrape_date=str(r["scraped_at"])[:10],
             scraped_at=str(r["scraped_at"]),
             nights=int(r["nights"]),
             adults=int(r["adults"]),

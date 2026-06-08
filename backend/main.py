@@ -46,7 +46,7 @@ async def health():
         "ml_store": "loaded" if _ml_store is not None else "not_loaded",
     }
 
-from routers import auth, calendar, competitors, recommendations, recommendation_decisions, anomalies, profile
+from routers import auth, calendar, competitors, recommendations, recommendation_decisions, anomalies, profile, dashboard
 from routers.admin import hotels as admin_hotels
 from routers.admin import managers as admin_managers
 from routers.admin import assignments as admin_assignments
@@ -60,6 +60,7 @@ app.include_router(recommendations.router)
 app.include_router(recommendation_decisions.router)
 app.include_router(anomalies.router)
 app.include_router(profile.router)
+app.include_router(dashboard.router)
 app.include_router(admin_hotels.router)
 app.include_router(admin_managers.router)
 app.include_router(admin_assignments.router)
