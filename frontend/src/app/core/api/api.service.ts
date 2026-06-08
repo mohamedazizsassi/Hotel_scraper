@@ -5,9 +5,10 @@ import { API_BASE } from '../config/api.config';
 import {
   AdminAlertDto, AdminCompetitorRowDto, AdminHotelDto, AdminManagerDto,
   AnomalyDto, AssignmentDto, CalendarOptionsDto, CalendarQuery, CalendarRowDto,
-  CompetitorDto, DailyRollupDto, DataResponse, DateRangeQuery,
-  DiscoverableHotelDto, HotelCreateBody, HotelUpdateBody, ManagerCreateBody,
-  ManagerUpdateBody, MonitoringSummaryDto, RecommendationDto, ScrapeRunDto,
+  CompetitorDto, DailyRollupDto, DashboardDto, DataResponse, DateRangeQuery,
+  DecisionBulkDto, DecisionDto, DiscoverableHotelDto, HotelCreateBody,
+  HotelUpdateBody, ManagerCreateBody, ManagerProfileDto, ManagerUpdateBody,
+  MonitoringSummaryDto, ProfileUpdateDto, RecommendationDto, ScrapeRunDto,
   SelectableHotelDto,
 } from './dto';
 
@@ -157,5 +158,22 @@ export class ApiService {
     return this.http
       .get<DataResponse<AdminAlertDto>>(`${API_BASE}/admin/alerts`)
       .pipe(map(r => r.data));
+  }
+
+  // --- Manager: profile + dashboard + decisions ---
+  getMe(): Observable<ManagerProfileDto> {
+    return this.http.get<ManagerProfileDto>(`${API_BASE}/manager/me`);
+  }
+  updateMe(patch: ProfileUpdateDto): Observable<ManagerProfileDto> {
+    return this.http.patch<ManagerProfileDto>(`${API_BASE}/manager/me`, patch);
+  }
+  getDashboard(days = 30): Observable<DashboardDto> {
+    return this.http.get<DashboardDto>(`${API_BASE}/manager/dashboard`, { params: toParams({ days }) });
+  }
+  postDecision(body: DecisionDto): Observable<DecisionDto> {
+    return this.http.post<DecisionDto>(`${API_BASE}/manager/recommendations/decision`, body);
+  }
+  postDecisionBulk(body: DecisionBulkDto): Observable<{ count: number }> {
+    return this.http.post<{ count: number }>(`${API_BASE}/manager/recommendations/decision/bulk`, body);
   }
 }

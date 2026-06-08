@@ -100,6 +100,7 @@ export interface RecommendationDto {
   peer_medium_median: number | null;
   peer_medium_count: number | null;
   reasons: string[];
+  decision_status: 'accepted' | 'dismissed' | null;
 }
 
 /** GET /manager/anomalies */
@@ -282,4 +283,64 @@ export interface AdminAlertDto {
   message: string;
   run_ts: string;
   log_filename: string;
+}
+
+/** GET /manager/me */
+export interface HotelBriefDto {
+  id: number;
+  hotel_name_display: string;
+  city_name: string;
+  stars_int: number | null;
+}
+export interface ManagerProfileDto {
+  full_name: string | null;
+  email: string;
+  role: string;
+  preferences: Record<string, any>;
+  hotel: HotelBriefDto | null;
+  competitor_count: number;
+  max_competitors: number;
+  last_login_at: string | null;
+}
+export interface ProfileUpdateDto {
+  full_name?: string;
+  preferences?: Record<string, any>;
+}
+
+/** GET /manager/dashboard */
+export interface DashboardKpisDto {
+  avg_listed_rate_tnd: number | null;
+  market_position_pct: number | null;
+  vs_competitor_pct: number | null;
+  opportunity_tnd: number | null;
+  opportunity_pct: number | null;
+  open_recommendations: number;
+  active_alerts: number;
+}
+export interface PriceSeriesPointDto {
+  check_in: string;
+  price_per_night: number;
+  peer_medium_median: number | null;
+  recommended_price_per_night: number;
+}
+export interface DashboardDto {
+  kpis: DashboardKpisDto;
+  price_series: PriceSeriesPointDto[];
+  top_recommendations: RecommendationDto[];
+  competitors: CompetitorDto[];
+  recent_alerts: AnomalyDto[];
+}
+
+/** POST /manager/recommendations/decision */
+export interface DecisionDto {
+  check_in: string;
+  nights: number;
+  adults: number;
+  boarding_canonical: string;
+  recommended_price_tnd?: number;
+  status: 'accepted' | 'dismissed';
+}
+export interface DecisionBulkDto {
+  status: 'accepted' | 'dismissed';
+  items: Omit<DecisionDto, 'status'>[];
 }
