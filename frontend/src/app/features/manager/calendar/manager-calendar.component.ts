@@ -1,5 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../../core/api/api.service';
 import { CalendarOptionsDto, CalendarRowDto, CalendarQuery } from '../../../core/api/dto';
 
@@ -319,6 +320,7 @@ function label(v: string): string { return v === '' ? '(none)' : v; }
 })
 export class ManagerCalendarComponent implements OnInit {
   private api = inject(ApiService);
+  private route = inject(ActivatedRoute);
 
   readonly label = label;
 
@@ -392,11 +394,24 @@ export class ManagerCalendarComponent implements OnInit {
     });
   }
 
-  /** A ~5-week window starting at the later of today / earliest available date. */
+  /**
+   * A ~5-week window starting at the later of today / earliest available date.
+   * If the route carries a `check_in` query param (e.g. deep-linked from an
+   * Alerts "Investigate" action) and it falls within the available range, the
+   * window start is biased to that date instead so the anomaly is in view.
+   */
   private computeWindow(opts: CalendarOptionsDto): void {
     const today = isoDate(new Date());
     let from = opts.check_in_min && opts.check_in_min > today ? opts.check_in_min : today;
     if (opts.check_in_max && from > opts.check_in_max) from = opts.check_in_min ?? from;
+
+    const requested = this.route.snapshot.queryParamMap.get('check_in');
+    if (requested
+        && (!opts.check_in_min || requested >= opts.check_in_min)
+        && (!opts.check_in_max || requested <= opts.check_in_max)) {
+      from = requested;
+    }
+
     const toDate = new Date(from); toDate.setDate(toDate.getDate() + 34);
     let to = isoDate(toDate);
     if (opts.check_in_max && to > opts.check_in_max) to = opts.check_in_max;

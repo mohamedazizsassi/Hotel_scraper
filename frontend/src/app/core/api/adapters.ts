@@ -34,6 +34,7 @@ export function alertFromDto(d: AnomalyDto, i: number): Alert {
   return {
     id: `anom-${d.check_in}-${d.nights}n-${i}`,
     date: d.scraped_at,
+    checkIn: d.check_in,
     severity,
     type: below ? 'price_drop' : 'price_spike',
     message:

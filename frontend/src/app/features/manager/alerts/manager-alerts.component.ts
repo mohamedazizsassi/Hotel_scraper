@@ -1,5 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { Router } from '@angular/router';
 import { switchMap } from 'rxjs';
 import { ApiService } from '../../../core/api/api.service';
 import { alertFromDto } from '../../../core/api/adapters';
@@ -19,7 +20,6 @@ function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
         <div class="sub">Anomaly + market-event feed for your hotel and competitor set.</div>
       </div>
       <div class="row">
-        <button class="btn">Mark all read</button>
         <button class="btn">Notification settings</button>
       </div>
     </div>
@@ -63,7 +63,7 @@ function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
                 <span class="small muted">{{ a.type }}</span>
               </div>
             </div>
-            <button class="btn sm">Investigate</button>
+            <button class="btn sm" (click)="investigate(a)">Investigate</button>
           </li>
         }
       </ul>
@@ -83,6 +83,7 @@ function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 })
 export class ManagerAlertsComponent implements OnInit {
   private api = inject(ApiService);
+  private router = inject(Router);
 
   alerts = signal<Alert[]>([]);
   loading = signal(true);
@@ -90,6 +91,10 @@ export class ManagerAlertsComponent implements OnInit {
 
   count(s: 'critical' | 'warning' | 'info') {
     return this.alerts().filter(a => a.severity === s).length;
+  }
+
+  investigate(a: Alert) {
+    this.router.navigate(['/manager/calendar'], { queryParams: { check_in: a.checkIn } });
   }
 
   ngOnInit(): void {
