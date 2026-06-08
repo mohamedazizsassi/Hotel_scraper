@@ -407,6 +407,7 @@ export class ManagerCalendarComponent implements OnInit {
 
     const requested = this.route.snapshot.queryParamMap.get('check_in');
     if (requested
+        && /^\d{4}-\d{2}-\d{2}$/.test(requested)
         && (!opts.check_in_min || requested >= opts.check_in_min)
         && (!opts.check_in_max || requested <= opts.check_in_max)) {
       from = requested;

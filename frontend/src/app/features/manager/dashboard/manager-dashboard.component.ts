@@ -84,8 +84,7 @@ import { DashboardDto, ManagerProfileDto } from '../../../core/api/dto';
                 @else { <span class="badge">flat</span> }
               </div>
               <div class="row" style="gap:6px;">
-                <button class="btn sm">Dismiss</button>
-                <button class="btn primary sm">Accept</button>
+                <a class="btn sm" routerLink="/manager/recommendations">Review →</a>
               </div>
             </div>
           }
@@ -100,7 +99,7 @@ import { DashboardDto, ManagerProfileDto } from '../../../core/api/dto';
           <a class="small" routerLink="/manager/competitors">Manage →</a>
         </div>
         <div>
-          @for (c of competitors(); track c.hotel_name_display) {
+          @for (c of competitors(); track c.hotel_name_normalized) {
             <div class="comp-row">
               <div>
                 <div style="font-weight:500;">{{ c.hotel_name_display }}</div>
