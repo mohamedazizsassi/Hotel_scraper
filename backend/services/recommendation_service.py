@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from db.models import User
 from services.common import get_manager_hotel_name, build_feature_query
+from services.decision_service import get_decision_map
 from ml_store.store import MLStore, prepare_serve_frame
 from schemas.recommendation import RecommendationRow
 
@@ -62,7 +63,6 @@ async def get_recommendations(
         rec["reasons"] = list(rec.get("reasons", []))
         out.append(RecommendationRow(**rec))
 
-    from services.decision_service import get_decision_map
     decisions = await get_decision_map(user, db)
     for row in out:
         row.decision_status = decisions.get(

@@ -27,3 +27,6 @@ class DecisionRow(BaseModel):
     boarding_canonical: str
     recommended_price_tnd: float | None
     status: DecisionStatus
+
+class DecisionBulkOut(BaseModel):
+    count: int

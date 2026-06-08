@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS manager_recommendation_decisions (
     status TEXT NOT NULL CHECK (status IN ('accepted', 'dismissed')),
     decided_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (user_id, check_in, nights, adults, boarding_canonical)
+    CONSTRAINT uq_mrd_user_checkin_nights_adults_boarding UNIQUE (user_id, check_in, nights, adults, boarding_canonical)
 );
 
 CREATE INDEX IF NOT EXISTS idx_mrd_user_checkin

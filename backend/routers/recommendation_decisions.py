@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.dependencies import get_db, get_current_manager
 from db.models import User
-from schemas.decision import DecisionIn, DecisionBulkIn, DecisionRow
+from schemas.decision import DecisionIn, DecisionBulkIn, DecisionRow, DecisionBulkOut
 from services.decision_service import set_decision, set_decisions_bulk
 
 router = APIRouter(prefix="/manager", tags=["manager"])
@@ -17,11 +17,11 @@ async def decision_endpoint(
 ):
     return await set_decision(user, body, db)
 
-@router.post("/recommendations/decision/bulk")
+@router.post("/recommendations/decision/bulk", response_model=DecisionBulkOut)
 async def decision_bulk_endpoint(
     body: DecisionBulkIn,
     user: User = Depends(get_current_manager),
     db: AsyncSession = Depends(get_db),
 ):
     count = await set_decisions_bulk(user, body, db)
-    return {"count": count}
+    return DecisionBulkOut(count=count)
