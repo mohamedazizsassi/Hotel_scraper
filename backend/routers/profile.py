@@ -1,3 +1,5 @@
+# backend/routers/profile.py
+from __future__ import annotations
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.dependencies import get_db, get_current_manager
