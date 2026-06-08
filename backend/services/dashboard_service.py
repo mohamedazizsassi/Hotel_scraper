@@ -35,8 +35,11 @@ async def get_dashboard(user: User, db: AsyncSession, ml_store: MLStore,
     comp_avg = _safe_mean([c.avg_price_per_night for c in competitors])
     avg_rec = _safe_mean([r.recommended_price_per_night for r in cal])
 
-    market_pos = ((avg_price - avg_peer) / avg_peer * 100) if avg_price and avg_peer else None
-    vs_comp = ((avg_price - comp_avg) / comp_avg * 100) if avg_price and comp_avg else None
+    # `avg_price is not None` guards the numerator (a legitimate 0.0 should still
+    # compute); the divisor (avg_peer / comp_avg) keeps a truthiness guard so a
+    # zero or missing peer/competitor average avoids ZeroDivisionError -> None.
+    market_pos = ((avg_price - avg_peer) / avg_peer * 100) if avg_price is not None and avg_peer else None
+    vs_comp = ((avg_price - comp_avg) / comp_avg * 100) if avg_price is not None and comp_avg else None
     opp_tnd = (avg_rec - avg_price) if avg_rec is not None and avg_price is not None else None
     opp_pct = (opp_tnd / avg_price * 100) if opp_tnd is not None and avg_price else None
 
