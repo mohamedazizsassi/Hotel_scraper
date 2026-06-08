@@ -21,5 +21,6 @@ class RecommendationRow(HotelMeta):
     peer_medium_median: float | None
     peer_medium_count: int | None
     reasons: list[str]
+    decision_status: str | None = None
 
 RecommendationResponse = DataResponse[RecommendationRow]

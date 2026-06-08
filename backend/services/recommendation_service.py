@@ -61,4 +61,11 @@ async def get_recommendations(
     for rec in result_df.to_dict(orient="records"):
         rec["reasons"] = list(rec.get("reasons", []))
         out.append(RecommendationRow(**rec))
+
+    from services.decision_service import get_decision_map
+    decisions = await get_decision_map(user, db)
+    for row in out:
+        row.decision_status = decisions.get(
+            (row.check_in, row.nights, row.adults, row.boarding_canonical)
+        )
     return out

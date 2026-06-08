@@ -2,7 +2,10 @@ from __future__ import annotations
 import uuid
 import datetime
 from typing import Optional
-from sqlalchemy import String, Boolean, Integer, SmallInteger, DateTime, ForeignKey, Numeric, func, text
+from sqlalchemy import (
+    String, Boolean, Integer, SmallInteger, DateTime, ForeignKey, Numeric, func, text,
+    UniqueConstraint, CheckConstraint, Index,
+)
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -89,6 +92,14 @@ class PlatformHotelSource(Base):
 
 class ManagerRecommendationDecision(Base):
     __tablename__ = "manager_recommendation_decisions"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "check_in", "nights", "adults", "boarding_canonical",
+            name="uq_mrd_user_checkin_nights_adults_boarding",
+        ),
+        CheckConstraint("status IN ('accepted', 'dismissed')", name="ck_mrd_status"),
+        Index("idx_mrd_user_checkin", "user_id", "check_in"),
+    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     hotel_id: Mapped[int] = mapped_column(Integer, ForeignKey("platform_hotels.id"))
