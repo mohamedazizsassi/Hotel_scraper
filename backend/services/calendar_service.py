@@ -138,6 +138,40 @@ async def get_calendar(
     if not rows:
         return []
 
+    # Competitor averages: avg price_per_night of the manager's selected competitors
+    # for each check_in date, filtered to the same product config.
+    comp_conditions = ["ucs.user_id = :comp_user_id"]
+    comp_params: dict = {"comp_user_id": str(user.id)}
+    if check_in_from:
+        comp_conditions.append("hf.check_in >= :comp_from")
+        comp_params["comp_from"] = check_in_from
+    if check_in_to:
+        comp_conditions.append("hf.check_in <= :comp_to")
+        comp_params["comp_to"] = check_in_to
+    if boarding_canonical:
+        comp_conditions.append("COALESCE(hf.boarding_canonical,'') = :comp_boarding")
+        comp_params["comp_boarding"] = boarding_canonical
+    if nights is not None:
+        comp_conditions.append("hf.nights = :comp_nights")
+        comp_params["comp_nights"] = nights
+    if adults is not None:
+        comp_conditions.append("hf.adults = :comp_adults")
+        comp_params["comp_adults"] = adults
+
+    comp_sql = text(f"""
+        SELECT hf.check_in, AVG(hf.price_per_night) AS avg_ppn
+        FROM user_competitor_selections ucs
+        JOIN platform_hotels ph ON ph.id = ucs.hotel_id
+        JOIN hotel_features hf  ON hf.hotel_name_normalized = ph.hotel_name_normalized
+        WHERE {" AND ".join(comp_conditions)}
+        GROUP BY hf.check_in
+    """)
+    comp_result = await db.execute(comp_sql, comp_params)
+    comp_avg: dict[str, float] = {
+        str(row["check_in"]): float(row["avg_ppn"])
+        for row in comp_result.mappings().fetchall()
+    }
+
     df = pd.DataFrame(rows, columns=list(result.keys())).reset_index(drop=True)
     df = prepare_serve_frame(df)
 
@@ -178,6 +212,7 @@ async def get_calendar(
             peer_medium_median=float(pm) if pd.notna(pm) else None,
             peer_medium_count=int(pc) if pd.notna(pc) else None,
             best_peer_granularity_used=str(r["best_peer_granularity_used"]) if pd.notna(r["best_peer_granularity_used"]) else None,
+            competitor_avg_per_night=comp_avg.get(str(r["check_in"])),
             recommended_price_per_night=float(rec_ppn[i]),
             forecaster_confidence=float(confidence[i]),
             sur_demande_rate_city_stars_checkin=float(sur) if sur is not None and pd.notna(sur) else None,
