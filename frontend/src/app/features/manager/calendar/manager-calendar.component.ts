@@ -185,50 +185,42 @@ function label(v: string): string { return v === '' ? '(none)' : v; }
         @for (s of spacers(); track $index) { <div class="cell empty"></div> }
 
         @for (p of visible(); track p.check_in) {
-          <div class="cell"
-               [class.weekend]="p.is_weekend_checkin"
-               [class.flag-ramadan]="overlays().is_ramadan && p.is_ramadan"
-               [class.flag-tn-pub]="overlays().is_tunisia_public_holiday && p.is_tunisia_public_holiday"
-               [class.flag-tn-sch]="overlays().is_tunisia_school_holiday && p.is_tunisia_school_holiday"
-               [class.flag-eu-sch]="(overlays().is_school_holiday_france && p.is_school_holiday_france)
-                                  || (overlays().is_school_holiday_germany && p.is_school_holiday_germany)
-                                  || (overlays().is_school_holiday_uk && p.is_school_holiday_uk)">
-            <div class="row between">
-              <span class="cal-day mono">{{ p.check_in | date:'d' }}</span>
-              <span class="peer-pill mono" [class.tight]="p.best_peer_granularity_used==='tight'"
-                                            [class.loose]="p.best_peer_granularity_used==='loose'"
-                    [title]="'best_peer_granularity_used = ' + p.best_peer_granularity_used + ' · n = ' + p.peer_medium_count">
-                {{ p.best_peer_granularity_used }} · n{{ p.peer_medium_count }}
-              </span>
+          <div class="cell" [class.weekend]="p.is_weekend_checkin"
+               [title]="granularityTip(p)">
+            <!-- Date line + context tags + action badge -->
+            <div class="cell-top">
+              <span class="cal-day mono">{{ p.check_in | date:'d MMM' }}</span>
+              <span class="badge-action" [class]="badge(p).cls">{{ badge(p).label }}</span>
             </div>
+            @if (tags(p).length > 0) {
+              <div class="tag-row">
+                @for (t of tags(p); track t) {
+                  <span class="ctx-tag">{{ t }}</span>
+                }
+              </div>
+            }
 
+            <!-- Price rows -->
             <div class="prices">
-              <div class="row between">
-                <span class="tiny muted">YOU</span>
-                <span class="mono">{{ p.price_per_night | number:'1.0-0' }}</span>
+              <div class="price-row">
+                <span class="price-lbl">Your rate</span>
+                <span class="mono fw">{{ p.price_per_night | number:'1.0-0' }} TND</span>
               </div>
-              <div class="row between">
-                <span class="tiny muted">PEER</span>
-                <span class="mono muted">{{ p.peer_medium_median !== null ? (p.peer_medium_median | number:'1.0-0') : '—' }}</span>
+              <div class="price-row muted">
+                <span class="price-lbl">Market avg</span>
+                <span class="mono">{{ p.peer_medium_median !== null ? (p.peer_medium_median | number:'1.0-0') + ' TND' : '—' }}</span>
               </div>
-              <div class="row between rec">
-                <span class="tiny">REC</span>
-                <span class="mono">{{ p.recommended_price_per_night | number:'1.0-0' }}</span>
+              <div class="price-row muted">
+                <span class="price-lbl">Competitors</span>
+                <span class="mono">{{ p.competitor_avg_per_night !== null ? (p.competitor_avg_per_night | number:'1.0-0') + ' TND' : '—' }}</span>
+              </div>
+              <div class="price-row suggested">
+                <span class="price-lbl">Suggested</span>
+                <span class="mono fw">{{ p.recommended_price_per_night | number:'1.0-0' }} TND</span>
               </div>
             </div>
 
-            <div class="cell-foot">
-              <span class="bar"
-                    [class.up]="p.recommended_price_per_night > p.price_per_night"
-                    [class.down]="p.recommended_price_per_night < p.price_per_night">
-                {{ p.recommended_price_per_night > p.price_per_night ? '+' : '' }}{{ ((p.recommended_price_per_night - p.price_per_night) / p.price_per_night * 100) | number:'1.1-1' }}%
-              </span>
-              @if (p.is_tunisia_public_holiday) { <span class="tag" title="is_tunisia_public_holiday">TN★</span> }
-              @if (p.is_ramadan)                { <span class="tag" title="is_ramadan">Rmd</span> }
-              @if (p.is_school_holiday_france)  { <span class="tag" title="is_school_holiday_france">FR</span> }
-              @if (p.is_school_holiday_germany) { <span class="tag" title="is_school_holiday_germany">DE</span> }
-              @if (p.is_school_holiday_uk)      { <span class="tag" title="is_school_holiday_uk">UK</span> }
-            </div>
+            <div class="delta-bar" [class]="badge(p).cls">{{ deltaPct(p) }}</div>
           </div>
         }
 
@@ -281,40 +273,39 @@ function label(v: string): string { return v === '' ? '(none)' : v; }
 
     .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--color-border); padding: 1px; }
     .cal-head { background: var(--color-surface-2); padding: 8px 10px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--color-muted); font-weight: 600; }
-    .cell { background: var(--color-surface); padding: 8px 10px; min-height: 130px; display: flex; flex-direction: column; gap: 6px; transition: background-color .12s ease; }
+
+    .cell { background: var(--color-surface); padding: 10px; min-height: 150px; display: flex; flex-direction: column; gap: 6px; transition: background-color .12s ease; }
     .cell:hover { background: var(--color-surface-2); }
     .cell.empty { background: transparent; min-height: 80px; }
     .cell.empty.wide { grid-column: 1 / -1; min-height: 60px; display: flex; align-items: center; justify-content: center; font-size: 13px; padding: 18px; }
-    .cell.weekend     { background: linear-gradient(180deg, rgba(37,99,235,.04), var(--color-surface)); }
-    .cell.flag-ramadan { background: linear-gradient(180deg, rgba(168,85,247,.10), var(--color-surface)); }
-    .cell.flag-tn-pub  { background: linear-gradient(180deg, rgba(220,38,38,.10), var(--color-surface)); }
-    .cell.flag-tn-sch  { background: linear-gradient(180deg, rgba(217,119,6,.10), var(--color-surface)); }
-    .cell.flag-eu-sch  { background: linear-gradient(180deg, rgba(5,150,105,.10), var(--color-surface)); }
+    .cell.weekend { background: linear-gradient(180deg, rgba(37,99,235,.04), var(--color-surface)); }
 
-    .cal-day { font-size: 14px; font-weight: 600; }
-    .peer-pill {
-      font-size: 10px; padding: 2px 6px; border-radius: 4px;
-      background: var(--color-surface-2); color: var(--color-muted);
-      border: 1px solid var(--color-border);
-    }
-    .peer-pill.tight { background: var(--color-success-soft); color: var(--color-success); border-color: transparent; }
-    .peer-pill.loose { background: var(--color-warning-soft); color: var(--color-warning); border-color: transparent; }
+    .cell-top { display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+    .cal-day { font-size: 13px; font-weight: 700; color: var(--color-foreground); }
 
-    .prices { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
-    .rec { color: var(--color-accent); font-weight: 600; }
+    .badge-action { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+    .badge-action.hold  { background: var(--color-success-soft);      color: var(--color-success); }
+    .badge-action.raise { background: var(--color-warning-soft);       color: var(--color-warning); }
+    .badge-action.lower { background: var(--color-destructive-soft);   color: var(--color-destructive); }
 
-    .cell-foot { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: auto; }
-    .bar { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: var(--color-surface-2); color: var(--color-muted); font-weight: 600; }
-    .bar.up   { background: var(--color-success-soft); color: var(--color-success); }
-    .bar.down { background: var(--color-destructive-soft); color: var(--color-destructive); }
-    .tag {
-      font-family: var(--font-mono); font-size: 10px;
-      padding: 1px 5px; border-radius: 3px;
-      background: var(--color-surface-2); color: var(--color-muted);
-      border: 1px solid var(--color-border);
-    }
+    .tag-row { display: flex; flex-wrap: wrap; gap: 3px; }
+    .ctx-tag { font-size: 9px; padding: 1px 5px; border-radius: 3px; background: var(--color-surface-2); color: var(--color-muted); border: 1px solid var(--color-border); }
 
-    @media (max-width: 900px) { .cell { min-height: 110px; } }
+    .prices { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+    .price-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; }
+    .price-row.muted .price-lbl, .price-row.muted .mono { color: var(--color-muted-2); }
+    .price-row.suggested { border-top: 1px solid var(--color-border); padding-top: 4px; margin-top: 2px; }
+    .price-row.suggested .price-lbl { color: var(--color-primary); font-weight: 600; }
+    .price-row.suggested .mono { color: var(--color-primary); }
+    .price-lbl { color: var(--color-muted); }
+    .fw { font-weight: 700; color: var(--color-foreground); }
+
+    .delta-bar { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-align: center; margin-top: auto; }
+    .delta-bar.hold  { background: var(--color-surface-2); color: var(--color-muted); }
+    .delta-bar.raise { background: var(--color-warning-soft); color: var(--color-warning); }
+    .delta-bar.lower { background: var(--color-destructive-soft); color: var(--color-destructive); }
+
+    @media (max-width: 900px) { .cell { min-height: 120px; } }
   `],
 })
 export class ManagerCalendarComponent implements OnInit {
@@ -448,5 +439,53 @@ export class ManagerCalendarComponent implements OnInit {
       best_peer_granularity_used: 'any',
     });
     this.load();
+  }
+
+  /** Action badge derived from recommended vs current price. */
+  badge(p: CalendarRowDto): { label: string; cls: string } {
+    const delta = (p.recommended_price_per_night - p.price_per_night) / p.price_per_night;
+    if (delta > 0.02)  return { label: '↑ Raise', cls: 'raise' };
+    if (delta < -0.02) return { label: '↓ Lower', cls: 'lower' };
+    return { label: '✓ Hold', cls: 'hold' };
+  }
+
+  /** Context tags shown inline in the date line. */
+  tags(p: CalendarRowDto): string[] {
+    const o = this.overlays();
+    const t: string[] = [];
+    if (p.is_weekend_checkin)                                     t.push('Weekend');
+    if (o.is_tunisia_public_holiday && p.is_tunisia_public_holiday) t.push('TN Holiday');
+    if (o.is_ramadan && p.is_ramadan)                             t.push('Ramadan');
+    if (o.is_school_holiday_france && p.is_school_holiday_france) t.push('FR school');
+    if (o.is_tunisia_school_holiday && p.is_tunisia_school_holiday) t.push('TN school');
+    if (o.is_school_holiday_germany && p.is_school_holiday_germany) t.push('DE school');
+    if (o.is_school_holiday_uk && p.is_school_holiday_uk)         t.push('UK school');
+    return t;
+  }
+
+  /** Human-readable delta percentage string (e.g. "+5.2%" or "−3.1%"). */
+  deltaPct(p: CalendarRowDto): string {
+    const d = (p.recommended_price_per_night - p.price_per_night) / p.price_per_night * 100;
+    return (d >= 0 ? '+' : '') + d.toFixed(1) + '%';
+  }
+
+  /** Tooltip for the granularity info (moved off the visible cell). */
+  granularityTip(p: CalendarRowDto): string {
+    if (!p.best_peer_granularity_used) return '';
+    return `Market avg based on ${p.peer_medium_count ?? '?'} hotels (${p.best_peer_granularity_used} neighbourhood)`;
+  }
+
+  /** Combined school-holiday toggle state (FR + TN). */
+  schoolActive = computed(() =>
+    this.overlays().is_school_holiday_france || this.overlays().is_tunisia_school_holiday
+  );
+
+  toggleSchool() {
+    const next = !this.schoolActive();
+    this.overlays.update(o => ({
+      ...o,
+      is_school_holiday_france: next,
+      is_tunisia_school_holiday: next,
+    }));
   }
 }
