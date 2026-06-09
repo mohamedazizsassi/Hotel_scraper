@@ -27,6 +27,7 @@ class CalendarRow(HotelMeta):
     peer_medium_median: float | None
     peer_medium_count: int | None
     best_peer_granularity_used: str | None
+    competitor_avg_per_night: float | None   # avg of manager's selected competitors, same product config
 
     # Recommendation overlay (derived from forecaster + CQR + recommender)
     recommended_price_per_night: float
