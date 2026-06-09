@@ -53,58 +53,30 @@ function label(v: string): string { return v === '' ? '(none)' : v; }
 
     <!-- Filter bar -->
     <section class="card filter-bar">
-      <div class="filters">
-        <div class="field f-sm">
-          <label for="f-scrape">scrape_date <span class="hint">freshness</span></label>
-          <select id="f-scrape" class="select" [value]="filters().scrape_date"
-                  (change)="set('scrape_date', $any($event.target).value)">
-            <option value="">latest</option>
-            @for (d of opt().scrape_dates; track d) { <option [value]="d">{{ d }}</option> }
-          </select>
-        </div>
-
-        <div class="field f-sm">
-          <label for="f-base">room_base</label>
-          <select id="f-base" class="select" [value]="filters().room_base"
-                  (change)="set('room_base', $any($event.target).value)">
-            @for (v of opt().room_base; track v) { <option [value]="v">{{ label(v) }}</option> }
-          </select>
-        </div>
-
-        <div class="field f-sm">
-          <label for="f-view">room_view</label>
-          <select id="f-view" class="select" [value]="filters().room_view"
-                  (change)="set('room_view', $any($event.target).value)">
-            @for (v of opt().room_view; track v) { <option [value]="v">{{ label(v) }}</option> }
-          </select>
-        </div>
-
-        <div class="field f-sm">
-          <label for="f-tier">room_tier</label>
-          <select id="f-tier" class="select" [value]="filters().room_tier"
-                  (change)="set('room_tier', $any($event.target).value)">
-            @for (v of opt().room_tier; track v) { <option [value]="v">{{ label(v) }}</option> }
-          </select>
-        </div>
-
-        <div class="field f-sm">
-          <label for="f-occ">room_occupancy</label>
-          <select id="f-occ" class="select" [value]="filters().room_occupancy"
-                  (change)="set('room_occupancy', $any($event.target).value)">
-            @for (v of opt().room_occupancy; track v) { <option [value]="v">{{ label(v) }}</option> }
-          </select>
-        </div>
-
-        <div class="field f-md">
-          <label for="f-board">boarding_canonical</label>
+      <!-- Primary row: 4 key filters -->
+      <div class="primary-filters">
+        <div class="field">
+          <label for="f-board">Meal plan</label>
           <select id="f-board" class="select" [value]="filters().boarding_canonical"
                   (change)="set('boarding_canonical', $any($event.target).value)">
-            @for (b of opt().boarding_canonical; track b) { <option [value]="b">{{ label(b) }}</option> }
+            @for (b of opt().boarding_canonical; track b) {
+              <option [value]="b">{{ boardingLabel(b) }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="f-base">Room type</label>
+          <select id="f-base" class="select" [value]="filters().room_base"
+                  (change)="set('room_base', $any($event.target).value)">
+            @for (v of opt().room_base; track v) {
+              <option [value]="v">{{ roomBaseLabel(v) }}</option>
+            }
           </select>
         </div>
 
         <div class="field f-xs">
-          <label for="f-n">nights</label>
+          <label for="f-n">Nights</label>
           <select id="f-n" class="select mono" [value]="filters().nights"
                   (change)="set('nights', +$any($event.target).value)">
             @for (n of opt().nights; track n) { <option [value]="n">{{ n }}</option> }
@@ -112,52 +84,96 @@ function label(v: string): string { return v === '' ? '(none)' : v; }
         </div>
 
         <div class="field f-xs">
-          <label for="f-a">adults</label>
+          <label for="f-a">Adults</label>
           <select id="f-a" class="select mono" [value]="filters().adults"
                   (change)="set('adults', +$any($event.target).value)">
             @for (a of opt().adults; track a) { <option [value]="a">{{ a }}</option> }
           </select>
         </div>
 
-        <div class="field f-sm">
-          <label for="f-peer">best_peer_granularity_used</label>
-          <select id="f-peer" class="select" [value]="filters().best_peer_granularity_used"
-                  (change)="set('best_peer_granularity_used', $any($event.target).value)">
-            <option value="any">any</option>
-            <option value="tight">tight</option>
-            <option value="medium">medium</option>
-            <option value="loose">loose</option>
-          </select>
+        <div class="holiday-toggles">
+          <label class="chip-toggle">
+            <input type="checkbox" [checked]="overlays().is_tunisia_public_holiday"
+                   (change)="toggle('is_tunisia_public_holiday')">
+            <span>Public holidays</span>
+          </label>
+          <label class="chip-toggle">
+            <input type="checkbox" [checked]="schoolActive()"
+                   (change)="toggleSchool()">
+            <span>School holidays</span>
+          </label>
         </div>
+
+        <button class="btn more-btn" (click)="showMore.set(!showMore())">
+          {{ showMore() ? 'Less ▲' : 'More options ▼' }}
+        </button>
       </div>
 
-      <div class="overlays">
-        <span class="tiny">calendar_dim overlays</span>
-        <label class="chip-toggle">
-          <input type="checkbox" [checked]="overlays().is_ramadan" (change)="toggle('is_ramadan')">
-          <span>is_ramadan</span>
-        </label>
-        <label class="chip-toggle">
-          <input type="checkbox" [checked]="overlays().is_tunisia_public_holiday" (change)="toggle('is_tunisia_public_holiday')">
-          <span>is_tunisia_public_holiday</span>
-        </label>
-        <label class="chip-toggle">
-          <input type="checkbox" [checked]="overlays().is_tunisia_school_holiday" (change)="toggle('is_tunisia_school_holiday')">
-          <span>is_tunisia_school_holiday</span>
-        </label>
-        <label class="chip-toggle">
-          <input type="checkbox" [checked]="overlays().is_school_holiday_france" (change)="toggle('is_school_holiday_france')">
-          <span>is_school_holiday_france</span>
-        </label>
-        <label class="chip-toggle">
-          <input type="checkbox" [checked]="overlays().is_school_holiday_germany" (change)="toggle('is_school_holiday_germany')">
-          <span>is_school_holiday_germany</span>
-        </label>
-        <label class="chip-toggle">
-          <input type="checkbox" [checked]="overlays().is_school_holiday_uk" (change)="toggle('is_school_holiday_uk')">
-          <span>is_school_holiday_uk</span>
-        </label>
-      </div>
+      <!-- Collapsible advanced filters -->
+      @if (showMore()) {
+        <div class="advanced-filters">
+          <div class="field f-sm">
+            <label for="f-view">room_view <span class="hint">view type</span></label>
+            <select id="f-view" class="select" [value]="filters().room_view"
+                    (change)="set('room_view', $any($event.target).value)">
+              @for (v of opt().room_view; track v) { <option [value]="v">{{ label(v) }}</option> }
+            </select>
+          </div>
+
+          <div class="field f-sm">
+            <label for="f-tier">room_tier</label>
+            <select id="f-tier" class="select" [value]="filters().room_tier"
+                    (change)="set('room_tier', $any($event.target).value)">
+              @for (v of opt().room_tier; track v) { <option [value]="v">{{ label(v) }}</option> }
+            </select>
+          </div>
+
+          <div class="field f-sm">
+            <label for="f-occ">room_occupancy</label>
+            <select id="f-occ" class="select" [value]="filters().room_occupancy"
+                    (change)="set('room_occupancy', $any($event.target).value)">
+              @for (v of opt().room_occupancy; track v) { <option [value]="v">{{ label(v) }}</option> }
+            </select>
+          </div>
+
+          <div class="field f-sm">
+            <label for="f-scrape">scrape_date <span class="hint">freshness</span></label>
+            <select id="f-scrape" class="select" [value]="filters().scrape_date"
+                    (change)="set('scrape_date', $any($event.target).value)">
+              <option value="">latest</option>
+              @for (d of opt().scrape_dates; track d) { <option [value]="d">{{ d }}</option> }
+            </select>
+          </div>
+
+          <div class="field f-sm">
+            <label for="f-peer">best_peer_granularity_used</label>
+            <select id="f-peer" class="select" [value]="filters().best_peer_granularity_used"
+                    (change)="set('best_peer_granularity_used', $any($event.target).value)">
+              <option value="any">any</option>
+              <option value="tight">tight</option>
+              <option value="medium">medium</option>
+              <option value="loose">loose</option>
+            </select>
+          </div>
+
+          <div class="adv-toggles">
+            <label class="chip-toggle">
+              <input type="checkbox" [checked]="overlays().is_ramadan" (change)="toggle('is_ramadan')">
+              <span>Ramadan</span>
+            </label>
+            <label class="chip-toggle">
+              <input type="checkbox" [checked]="overlays().is_school_holiday_germany"
+                     (change)="toggle('is_school_holiday_germany')">
+              <span>DE school holidays</span>
+            </label>
+            <label class="chip-toggle">
+              <input type="checkbox" [checked]="overlays().is_school_holiday_uk"
+                     (change)="toggle('is_school_holiday_uk')">
+              <span>UK school holidays</span>
+            </label>
+          </div>
+        </div>
+      }
     </section>
 
     <!-- Summary strip -->
@@ -234,27 +250,27 @@ function label(v: string): string { return v === '' ? '(none)' : v; }
   `,
   styles: [`
     .filter-bar { padding: 14px 16px 12px; margin-bottom: 12px; }
-    .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 12px; align-items: end; }
-    .filters .field label { font-family: var(--font-mono); font-size: 11px; color: var(--color-muted); letter-spacing: 0; text-transform: none; font-weight: 500; }
-    .filters .field label .hint { color: var(--color-muted-2); font-weight: 400; margin-left: 4px; }
-    .filters .select { height: 32px; font-size: 12px; padding: 0 8px; }
-    .filters .select.mono { font-family: var(--font-mono); }
-    .f-xs { max-width: 100px; }
-    .f-sm { max-width: 200px; }
-    .f-md { max-width: 240px; }
 
-    .overlays {
-      margin-top: 12px; padding-top: 10px;
-      border-top: 1px dashed var(--color-border);
-      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    .primary-filters {
+      display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end;
     }
-    .overlays .tiny { margin-right: 4px; }
+    .primary-filters .field { display: flex; flex-direction: column; gap: 4px; }
+    .primary-filters .field label { font-size: 12px; color: var(--color-muted); font-weight: 500; }
+    .primary-filters .field label .hint { color: var(--color-muted-2); font-weight: 400; margin-left: 4px; font-size: 11px; }
+    .primary-filters .select { height: 34px; font-size: 13px; padding: 0 10px; }
+    .primary-filters .select.mono { font-family: var(--font-mono); }
+    .f-xs { width: 80px; }
+    .f-sm { width: 160px; }
+
+    .holiday-toggles { display: flex; gap: 8px; align-items: center; padding-bottom: 2px; }
+    .more-btn { align-self: flex-end; font-size: 12px; height: 34px; }
+
     .chip-toggle {
       display: inline-flex; align-items: center; gap: 6px;
-      padding: 4px 10px; border-radius: 999px;
+      padding: 5px 12px; border-radius: 999px;
       border: 1px solid var(--color-border);
       background: var(--color-surface-2); cursor: pointer;
-      font-family: var(--font-mono); font-size: 11px; color: var(--color-muted);
+      font-size: 12px; color: var(--color-muted);
       transition: all .15s ease;
     }
     .chip-toggle:hover { color: var(--color-foreground); border-color: var(--color-border-strong); }
@@ -262,6 +278,17 @@ function label(v: string): string { return v === '' ? '(none)' : v; }
     .chip-toggle:has(input:checked) {
       background: rgba(37,99,235,.10); border-color: var(--color-primary); color: var(--color-primary);
     }
+
+    .advanced-filters {
+      display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end;
+      margin-top: 12px; padding-top: 12px;
+      border-top: 1px dashed var(--color-border);
+    }
+    .advanced-filters .field { display: flex; flex-direction: column; gap: 4px; }
+    .advanced-filters .field label { font-family: var(--font-mono); font-size: 11px; color: var(--color-muted); font-weight: 500; }
+    .advanced-filters .field label .hint { color: var(--color-muted-2); font-weight: 400; margin-left: 4px; }
+    .advanced-filters .select { height: 32px; font-size: 12px; padding: 0 8px; }
+    .adv-toggles { display: flex; gap: 8px; align-items: center; padding-bottom: 2px; }
 
     .summary { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; padding: 10px 14px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
     .lg { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-muted); }
@@ -312,6 +339,36 @@ export class ManagerCalendarComponent implements OnInit {
   private api = inject(ApiService);
 
   readonly label = label;
+
+  showMore = signal(false);
+
+  private static readonly ROOM_BASE_LABELS: Record<string, string> = {
+    chambre:      'Room',
+    suite:        'Suite',
+    studio:       'Studio',
+    appartement:  'Apartment',
+    bungalow:     'Bungalow',
+    villa:        'Villa',
+  };
+
+  roomBaseLabel(v: string): string {
+    return ManagerCalendarComponent.ROOM_BASE_LABELS[v] ?? v;
+  }
+
+  boardingLabel(v: string): string {
+    const map: Record<string, string> = {
+      BB:       'Bed & Breakfast',
+      LOG:      'Room only',
+      HDP:      'Half board',
+      HDP_PLUS: 'Half board +',
+      PC:       'Full board',
+      PC_PLUS:  'Full board +',
+      AI:       'All inclusive',
+      AI_SOFT:  'AI soft',
+      AI_ULTRA: 'AI ultra',
+    };
+    return map[v] ?? v;
+  }
 
   private static readonly EMPTY_OPTIONS: CalendarOptionsDto = {
     room_base: [], room_view: [], room_tier: [], room_occupancy: [],
