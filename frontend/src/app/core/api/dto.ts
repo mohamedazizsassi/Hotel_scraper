@@ -30,6 +30,7 @@ export interface CalendarRowDto {
   peer_medium_median: number | null;
   peer_medium_count: number | null;
   best_peer_granularity_used: string | null;
+  competitor_avg_per_night: number | null;
   recommended_price_per_night: number;
   forecaster_confidence: number;
   sur_demande_rate_city_stars_checkin: number | null;
