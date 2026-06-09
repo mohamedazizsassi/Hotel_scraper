@@ -86,33 +86,63 @@ async def setup_test_db():
         # manager's hotel so the service reaches the scoring/mapping path.
         await conn.execute(text("""
             CREATE TABLE IF NOT EXISTS hotel_features (
-                hotel_name_normalized text,
-                city_name             text,
-                stars_int             int,
-                check_in              date,
-                nights                int,
-                adults                int,
-                boarding_canonical    text,
-                room_base             text,
-                room_view             text,
-                room_tier             text,
-                room_occupancy        text,
-                price                 double precision,
-                price_per_night       double precision,
-                scraped_at            text,
-                peer_medium_median    double precision,
-                peer_medium_count     int
+                hotel_name_normalized              text,
+                city_name                          text,
+                stars_int                          int,
+                check_in                           date,
+                nights                             int,
+                adults                             int,
+                children                           int DEFAULT 0,
+                boarding_canonical                 text,
+                room_base                          text,
+                room_view                          text,
+                room_tier                          text,
+                room_occupancy                     text,
+                is_supplement_variant              boolean DEFAULT false,
+                has_free_view_upgrade              boolean DEFAULT false,
+                price                              double precision,
+                price_per_night                    double precision,
+                scraped_at                         text,
+                scrape_date                        text,
+                peer_medium_median                 double precision,
+                peer_medium_count                  int,
+                best_peer_granularity_used         text,
+                sur_demande_rate_city_stars_checkin double precision,
+                days_until_checkin                 int DEFAULT 0,
+                is_weekend_checkin                 boolean DEFAULT false,
+                is_ramadan                         boolean DEFAULT false,
+                is_tunisia_public_holiday          boolean DEFAULT false,
+                is_tunisia_school_holiday          boolean DEFAULT false,
+                is_school_holiday_france           boolean DEFAULT false,
+                is_school_holiday_germany          boolean DEFAULT false,
+                is_school_holiday_uk               boolean DEFAULT false,
+                macro_region                       text,
+                stars_band                         text,
+                market_segment_id                  int
             )
         """))
         await conn.execute(text("""
             INSERT INTO hotel_features
               (hotel_name_normalized, city_name, stars_int, check_in, nights, adults,
                boarding_canonical, room_base, room_view, room_tier, room_occupancy,
-               price, price_per_night, scraped_at,
+               price, price_per_night, scraped_at, scrape_date,
                peer_medium_median, peer_medium_count)
             VALUES
               ('hotel_manager_test', 'hammamet', 4, DATE '2026-07-01', 3, 2,
-               'BB', 'chambre', 'mer', '', 'double', 1350.0, 450.0, '2026-05-18T10:00:00', 480.0, 8)
+               'BB', 'chambre', 'mer', '', 'double', 1350.0, 450.0, '2026-05-18T10:00:00', '2026-05-18', 480.0, 8)
+        """))
+        # Seed competitor hotel_features so competitor_avg_per_night is computable
+        await conn.execute(text("""
+            INSERT INTO hotel_features
+              (hotel_name_normalized, city_name, stars_int, check_in, nights, adults,
+               boarding_canonical, room_base, room_view, room_tier, room_occupancy,
+               price, price_per_night, scraped_at, scrape_date,
+               peer_medium_median, peer_medium_count)
+            VALUES
+              ('hotel_comp_1', 'hammamet', 4, DATE '2026-07-01', 3, 2,
+               'BB', 'chambre', 'mer', '', 'double', 1500.0, 500.0, '2026-05-18T10:00:00', '2026-05-18', NULL, NULL),
+              ('hotel_comp_2', 'hammamet', 4, DATE '2026-07-01', 3, 2,
+               'BB', 'chambre', 'mer', '', 'double', 1440.0, 480.0, '2026-05-18T10:00:00', '2026-05-18', NULL, NULL)
         """))
         # segment_dim (region source for admin hotel list); ML-owned in prod.
         await conn.execute(text("""
@@ -136,11 +166,11 @@ async def setup_test_db():
             INSERT INTO hotel_features
               (hotel_name_normalized, city_name, stars_int, check_in, nights, adults,
                boarding_canonical, room_base, room_view, room_tier, room_occupancy,
-               price, price_per_night, scraped_at, peer_medium_median, peer_medium_count)
+               price, price_per_night, scraped_at, scrape_date, peer_medium_median, peer_medium_count)
             VALUES
               ('hotel_unregistered', 'sousse', 3, DATE '2026-07-01', 2, 2,
                'BB', 'chambre', 'mer', '', 'double', 600.0, 300.0,
-               '2026-05-18T10:00:00', 320.0, 5)
+               '2026-05-18T10:00:00', '2026-05-18', 320.0, 5)
         """))
         await conn.execute(text(
             "CREATE OR REPLACE VIEW hotel_features_full AS SELECT * FROM hotel_features"

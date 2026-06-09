@@ -36,7 +36,7 @@ async def test_summary(client, db_session):
         assert b["finished_runs"] == 3
         assert b["failed_runs"] == 1
         assert b["last_run_status"] == "failed"        # latest run_ts is 2026-06-02 15:00
-        assert b["hotels_scraped_distinct"] == 2       # from hotel_features
+        assert b["hotels_scraped_distinct"] == 4       # hotel_manager_test + hotel_unregistered + 2 competitor hotels
         assert b["latest_scrape_at"].startswith("2026-06-02")
     finally:
         app.dependency_overrides.pop(get_hotel_prices_total, None)
