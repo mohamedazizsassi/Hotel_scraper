@@ -16,7 +16,6 @@ import { AuthService } from '../../core/auth/auth.service';
 
       <form class="card" (submit)="$event.preventDefault(); submit()">
         <h1>Sign in</h1>
-        <p class="muted small">Use your manager or admin account.</p>
 
         <div class="field">
           <label for="e">Email</label>
@@ -37,7 +36,6 @@ import { AuthService } from '../../core/auth/auth.service';
           <label class="row" style="gap:6px; font-size:12px;">
             <input type="checkbox" /> Remember me
           </label>
-          <a href="#" class="small">Forgot password?</a>
         </div>
 
         <button type="submit" class="btn primary" style="width:100%; margin-top: 6px;"
@@ -45,9 +43,7 @@ import { AuthService } from '../../core/auth/auth.service';
           {{ loading() ? 'Signing in…' : 'Continue' }}
         </button>
 
-        <p class="hint-creds tiny muted">
-          Dev seed: <span class="mono">manager&#64;revway.tn</span> / <span class="mono">REDACTED_DEV_PASSWORD</span>
-        </p>
+
       </form>
 
       <p class="foot-note muted small">© 2026 RevWay · Satisfy Insight</p>
@@ -59,7 +55,6 @@ import { AuthService } from '../../core/auth/auth.service';
     form.card { width: 100%; max-width: 380px; padding: 24px; display: flex; flex-direction: column; gap: 14px; box-shadow: var(--shadow-md); }
     h1 { margin: 0; font-size: 20px; letter-spacing: -0.02em; }
     .err { background: var(--color-destructive-soft); color: var(--color-destructive); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 13px; }
-    .hint-creds { margin: 4px 0 0; text-align: center; }
     .foot-note { margin: 0; }
   `],
 })
@@ -67,8 +62,8 @@ export class LoginComponent {
   private auth = inject(AuthService);
   private router = inject(Router);
 
-  email = 'manager@revway.tn';
-  password = 'REDACTED_DEV_PASSWORD';
+  email = '';
+  password = '';
   error = signal<string | null>(null);
   loading = signal(false);
 

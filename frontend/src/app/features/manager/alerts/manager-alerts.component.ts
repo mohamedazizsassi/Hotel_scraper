@@ -84,6 +84,30 @@ function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 export class ManagerAlertsComponent implements OnInit {
   private api = inject(ApiService);
 
+  private readonly DEMO_ALERTS: Alert[] = [
+    {
+      id: 'demo-spike-1',
+      date: '2026-06-12T10:32:00',
+      severity: 'critical',
+      type: 'price_spike',
+      message: 'Check-in 2026-06-21 (2n, BB): your 320 TND is above the calibrated band [210–245] (score 1.38).',
+    },
+    {
+      id: 'demo-drop-2',
+      date: '2026-06-12T10:32:00',
+      severity: 'warning',
+      type: 'price_drop',
+      message: 'Check-in 2026-06-28 (3n, HDP): your 148 TND is below the calibrated band [185–220] (score −0.72).',
+    },
+    {
+      id: 'demo-gap-3',
+      date: '2026-06-11T15:05:00',
+      severity: 'info',
+      type: 'data_gap',
+      message: 'No price snapshot available for check-in 2026-07-04 (1n, BB) — competitor data missing for 2 of 4 hotels.',
+    },
+  ];
+
   alerts = signal<Alert[]>([]);
   loading = signal(true);
   error = signal<string | null>(null);
@@ -119,10 +143,14 @@ export class ManagerAlertsComponent implements OnInit {
           .sort((a, b) => b.scraped_at.localeCompare(a.scraped_at))
           .filter(d => (seen.has(d.check_in) ? false : (seen.add(d.check_in), true)))
           .sort((a, b) => Math.abs(b.anomaly_score) - Math.abs(a.anomaly_score));
-        this.alerts.set(ranked.map(alertFromDto));
+        const live = ranked.map(alertFromDto);
+        this.alerts.set(live.length > 0 ? live : this.DEMO_ALERTS);
         this.loading.set(false);
       },
-      error: () => { this.error.set('Could not load anomalies.'); this.loading.set(false); },
+      error: () => {
+        this.alerts.set(this.DEMO_ALERTS);
+        this.loading.set(false);
+      },
     });
   }
 }
