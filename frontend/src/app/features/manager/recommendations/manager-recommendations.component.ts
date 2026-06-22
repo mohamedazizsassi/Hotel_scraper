@@ -4,6 +4,7 @@ import { switchMap } from 'rxjs';
 import { ApiService } from '../../../core/api/api.service';
 import { recommendationFromDto } from '../../../core/api/adapters';
 import { Recommendation } from '../../../core/models/domain';
+import { RecommendationDto, DecisionDto } from '../../../core/api/dto';
 
 type Filter = 'all' | 'new' | 'accepted' | 'dismissed';
 
@@ -20,8 +21,8 @@ function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
         <div class="sub">Rule-based suggestions with rationale you can defend to the GM.</div>
       </div>
       <div class="row">
-        <button class="btn">Dismiss all</button>
-        <button class="btn primary">Accept all new</button>
+        <button class="btn" (click)="bulk('dismissed')">Dismiss all</button>
+        <button class="btn primary" (click)="bulk('accepted')">Accept all new</button>
       </div>
     </div>
 
@@ -76,8 +77,8 @@ function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
             @else if (r.status === 'dismissed') { <span class="badge">dismissed</span> }
             @else { <span class="badge info">new</span> }
             <div class="actions">
-              <button class="btn sm">Dismiss</button>
-              <button class="btn primary sm">Accept</button>
+              <button class="btn sm" [disabled]="r.status !== 'new'" (click)="decide(r, 'dismissed')">Dismiss</button>
+              <button class="btn primary sm" [disabled]="r.status !== 'new'" (click)="decide(r, 'accepted')">Accept</button>
             </div>
           </div>
         </article>
@@ -128,6 +129,7 @@ function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 })
 export class ManagerRecommendationsComponent implements OnInit {
   private api = inject(ApiService);
+  private dtoById = new Map<string, RecommendationDto>();
 
   all = signal<Recommendation[]>([]);
   loading = signal(true);
@@ -172,15 +174,47 @@ export class ManagerRecommendationsComponent implements OnInit {
     ).subscribe({
       next: rows => {
         const seen = new Set<string>();
-        const latestPerDate = [...rows]
+        const latestPerDateDtos = [...rows]
           .sort((a, b) => b.scraped_at.localeCompare(a.scraped_at))
           .filter(d => (seen.has(d.check_in) ? false : (seen.add(d.check_in), true)))
-          .sort((a, b) => a.check_in.localeCompare(b.check_in))
-          .map(recommendationFromDto);
-        this.all.set(latestPerDate);
+          .sort((a, b) => a.check_in.localeCompare(b.check_in));
+        this.all.set(latestPerDateDtos.map(recommendationFromDto));
+        this.dtoById.clear();
+        latestPerDateDtos.forEach(d => this.dtoById.set(
+          `${d.check_in}-${d.nights}n-${d.boarding_canonical}-${d.adults}a`, d));
         this.loading.set(false);
       },
       error: () => { this.error.set('Could not load recommendations.'); this.loading.set(false); },
+    });
+  }
+
+  decide(r: Recommendation, status: 'accepted' | 'dismissed') {
+    const d = this.dtoById.get(r.id);
+    if (!d) return;
+    const body: DecisionDto = {
+      check_in: d.check_in, nights: d.nights, adults: d.adults,
+      boarding_canonical: d.boarding_canonical,
+      recommended_price_tnd: d.recommended_price_tnd, status,
+    };
+    this.api.postDecision(body).subscribe({
+      next: () => this.all.update(rows => rows.map(x => x.id === r.id ? { ...x, status } : x)),
+      error: () => {},
+    });
+  }
+
+  bulk(status: 'accepted' | 'dismissed') {
+    const targets = this.all().filter(r => status === 'accepted' ? r.status === 'new' : true);
+    const items = targets
+      .map(r => this.dtoById.get(r.id))
+      .filter((d): d is RecommendationDto => !!d)
+      .map(d => ({ check_in: d.check_in, nights: d.nights, adults: d.adults,
+                   boarding_canonical: d.boarding_canonical,
+                   recommended_price_tnd: d.recommended_price_tnd }));
+    if (!items.length) return;
+    this.api.postDecisionBulk({ status, items }).subscribe({
+      next: () => this.all.update(rows => rows.map(x =>
+        targets.some(t => t.id === x.id) ? { ...x, status } : x)),
+      error: () => {},
     });
   }
 }

@@ -78,3 +78,17 @@ async def get_manager_hotel_name(user: User, db: AsyncSession) -> str:
     if name is None:
         raise NotFoundError("Hotel assignment not found")
     return name
+
+
+async def get_manager_hotel_id(user: User, db: AsyncSession) -> int:
+    """Return the platform_hotels.id for the manager's active assigned hotel."""
+    result = await db.execute(
+        select(UserHotelAssignment.hotel_id).where(
+            UserHotelAssignment.user_id == user.id,
+            UserHotelAssignment.is_active.is_(True),
+        )
+    )
+    hotel_id = result.scalar_one_or_none()
+    if hotel_id is None:
+        raise NotFoundError("Hotel assignment not found")
+    return int(hotel_id)

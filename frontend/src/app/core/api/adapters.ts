@@ -23,7 +23,7 @@ export function recommendationFromDto(d: RecommendationDto): Recommendation {
     deltaPct: +d.delta_pct_vs_current.toFixed(1),
     confidence: confidenceFromInterval(d.q10_cal_tnd, d.q50_tnd, d.q90_cal_tnd),
     rationale: d.reasons,
-    status: 'new',
+    status: d.decision_status ?? 'new',
   };
 }
 
@@ -34,6 +34,7 @@ export function alertFromDto(d: AnomalyDto, i: number): Alert {
   return {
     id: `anom-${d.check_in}-${d.nights}n-${i}`,
     date: d.scraped_at,
+    checkIn: d.check_in,
     severity,
     type: below ? 'price_drop' : 'price_spike',
     message:

@@ -1,5 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { Router } from '@angular/router';
 import { switchMap } from 'rxjs';
 import { ApiService } from '../../../core/api/api.service';
 import { alertFromDto } from '../../../core/api/adapters';
@@ -19,7 +20,6 @@ function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
         <div class="sub">Anomaly + market-event feed for your hotel and competitor set.</div>
       </div>
       <div class="row">
-        <button class="btn">Mark all read</button>
         <button class="btn">Notification settings</button>
       </div>
     </div>
@@ -63,7 +63,7 @@ function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
                 <span class="small muted">{{ a.type }}</span>
               </div>
             </div>
-            <button class="btn sm">Investigate</button>
+            <button class="btn sm" (click)="investigate(a)">Investigate</button>
           </li>
         }
       </ul>
@@ -83,11 +83,13 @@ function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 })
 export class ManagerAlertsComponent implements OnInit {
   private api = inject(ApiService);
+  private router = inject(Router);
 
   private readonly DEMO_ALERTS: Alert[] = [
     {
       id: 'demo-spike-1',
       date: '2026-06-12T10:32:00',
+      checkIn: '2026-06-21',
       severity: 'critical',
       type: 'price_spike',
       message: 'Check-in 2026-06-21 (2n, BB): your 320 TND is above the calibrated band [210–245] (score 1.38).',
@@ -95,6 +97,7 @@ export class ManagerAlertsComponent implements OnInit {
     {
       id: 'demo-drop-2',
       date: '2026-06-12T10:32:00',
+      checkIn: '2026-06-28',
       severity: 'warning',
       type: 'price_drop',
       message: 'Check-in 2026-06-28 (3n, HDP): your 148 TND is below the calibrated band [185–220] (score −0.72).',
@@ -102,6 +105,7 @@ export class ManagerAlertsComponent implements OnInit {
     {
       id: 'demo-gap-3',
       date: '2026-06-11T15:05:00',
+      checkIn: '2026-07-04',
       severity: 'info',
       type: 'data_gap',
       message: 'No price snapshot available for check-in 2026-07-04 (1n, BB) — competitor data missing for 2 of 4 hotels.',
@@ -114,6 +118,10 @@ export class ManagerAlertsComponent implements OnInit {
 
   count(s: 'critical' | 'warning' | 'info') {
     return this.alerts().filter(a => a.severity === s).length;
+  }
+
+  investigate(a: Alert) {
+    this.router.navigate(['/manager/calendar'], { queryParams: { check_in: a.checkIn } });
   }
 
   ngOnInit(): void {

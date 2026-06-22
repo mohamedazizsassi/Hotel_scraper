@@ -119,6 +119,7 @@ export interface Recommendation {
 export interface Alert {
   id: string;
   date: string;
+  checkIn: string;
   severity: 'info' | 'warning' | 'critical';
   type: 'price_drop' | 'price_spike' | 'competitor_undercut' | 'anomaly' | 'data_gap';
   message: string;

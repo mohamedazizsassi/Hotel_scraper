@@ -173,9 +173,9 @@ export const RECOMMENDATIONS: Recommendation[] = CALENDAR.slice(0, 8).map((p, i)
 });
 
 export const ALERTS: Alert[] = [
-  { id: 'a-1', date: '2026-05-23T09:12:00Z', severity: 'critical', type: 'competitor_undercut', message: 'Riu Imperial Marhaba dropped 14% below your rate for 2026-05-30.',       hotelId: 'h-001', competitorId: 'h-006' },
-  { id: 'a-2', date: '2026-05-23T08:40:00Z', severity: 'warning',  type: 'price_spike',         message: 'Your rate is 11% above market average on 2026-06-04 (weekend).',         hotelId: 'h-001' },
-  { id: 'a-3', date: '2026-05-22T17:55:00Z', severity: 'info',     type: 'anomaly',             message: 'Unusual price volatility detected in Sousse market for next 7 days.' },
-  { id: 'a-4', date: '2026-05-22T11:02:00Z', severity: 'warning',  type: 'data_gap',            message: 'tunisiepromo run partial: 198/264 hotels covered.' },
-  { id: 'a-5', date: '2026-05-21T14:31:00Z', severity: 'info',     type: 'price_drop',          message: 'Market average down 3.2% week-over-week for 4-star Hammamet.' },
+  { id: 'a-1', date: '2026-05-23T09:12:00Z', checkIn: '2026-05-30', severity: 'critical', type: 'competitor_undercut', message: 'Riu Imperial Marhaba dropped 14% below your rate for 2026-05-30.',       hotelId: 'h-001', competitorId: 'h-006' },
+  { id: 'a-2', date: '2026-05-23T08:40:00Z', checkIn: '2026-06-04', severity: 'warning',  type: 'price_spike',         message: 'Your rate is 11% above market average on 2026-06-04 (weekend).',         hotelId: 'h-001' },
+  { id: 'a-3', date: '2026-05-22T17:55:00Z', checkIn: '2026-05-29', severity: 'info',     type: 'anomaly',             message: 'Unusual price volatility detected in Sousse market for next 7 days.' },
+  { id: 'a-4', date: '2026-05-22T11:02:00Z', checkIn: '2026-05-29', severity: 'warning',  type: 'data_gap',            message: 'tunisiepromo run partial: 198/264 hotels covered.' },
+  { id: 'a-5', date: '2026-05-21T14:31:00Z', checkIn: '2026-05-28', severity: 'info',     type: 'price_drop',          message: 'Market average down 3.2% week-over-week for 4-star Hammamet.' },
 ];

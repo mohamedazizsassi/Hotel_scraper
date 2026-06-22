@@ -103,7 +103,7 @@ async def setup_test_db():
                 price                              double precision,
                 price_per_night                    double precision,
                 scraped_at                         text,
-                scrape_date                        text,
+                scrape_date                        timestamp,
                 peer_medium_median                 double precision,
                 peer_medium_count                  int,
                 best_peer_granularity_used         text,
@@ -125,11 +125,17 @@ async def setup_test_db():
             INSERT INTO hotel_features
               (hotel_name_normalized, city_name, stars_int, check_in, nights, adults,
                boarding_canonical, room_base, room_view, room_tier, room_occupancy,
-               price, price_per_night, scraped_at, scrape_date,
-               peer_medium_median, peer_medium_count)
+               price, price_per_night, scrape_date, scraped_at,
+               peer_medium_median, peer_medium_count,
+               children, is_supplement_variant, has_free_view_upgrade,
+               best_peer_granularity_used, sur_demande_rate_city_stars_checkin,
+               days_until_checkin, is_weekend_checkin, is_ramadan,
+               is_tunisia_public_holiday, is_tunisia_school_holiday,
+               is_school_holiday_france, is_school_holiday_germany, is_school_holiday_uk)
             VALUES
               ('hotel_manager_test', 'hammamet', 4, DATE '2026-07-01', 3, 2,
-               'BB', 'chambre', 'mer', '', 'double', 1350.0, 450.0, '2026-05-18T10:00:00', '2026-05-18', 480.0, 8)
+               'BB', 'chambre', 'mer', '', 'double', 1350.0, 450.0, DATE '2026-05-18', '2026-05-18T10:00:00', 480.0, 8,
+               2, false, false, 'city_stars', 0.1, 44, false, false, false, false, false, false, false)
         """))
         # Seed competitor hotel_features so competitor_avg_per_night is computable
         await conn.execute(text("""
@@ -140,9 +146,9 @@ async def setup_test_db():
                peer_medium_median, peer_medium_count)
             VALUES
               ('hotel_comp_1', 'hammamet', 4, DATE '2026-07-01', 3, 2,
-               'BB', 'chambre', 'mer', '', 'double', 1500.0, 500.0, '2026-05-18T10:00:00', '2026-05-18', NULL, NULL),
+               'BB', 'chambre', 'mer', '', 'double', 1500.0, 500.0, '2026-05-18T10:00:00', DATE '2026-05-18', NULL, NULL),
               ('hotel_comp_2', 'hammamet', 4, DATE '2026-07-01', 3, 2,
-               'BB', 'chambre', 'mer', '', 'double', 1440.0, 480.0, '2026-05-18T10:00:00', '2026-05-18', NULL, NULL)
+               'BB', 'chambre', 'mer', '', 'double', 1440.0, 480.0, '2026-05-18T10:00:00', DATE '2026-05-18', NULL, NULL)
         """))
         # segment_dim (region source for admin hotel list); ML-owned in prod.
         await conn.execute(text("""

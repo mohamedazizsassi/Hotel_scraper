@@ -2,8 +2,11 @@ from __future__ import annotations
 import uuid
 import datetime
 from typing import Optional
-from sqlalchemy import String, Boolean, Integer, SmallInteger, DateTime, ForeignKey, Numeric, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import (
+    String, Boolean, Integer, SmallInteger, DateTime, ForeignKey, Numeric, func, text,
+    UniqueConstraint, CheckConstraint, Index,
+)
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -27,6 +30,8 @@ class User(Base):
     role: Mapped[str] = mapped_column(String, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_login_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    preferences: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb"), default=dict)
 
 
 class PlatformHotel(Base):
@@ -82,4 +87,29 @@ class PlatformHotelSource(Base):
     source_hotel_name: Mapped[str] = mapped_column(String, nullable=False)
     source_city_id: Mapped[Optional[int]] = mapped_column(Integer)
     last_seen_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+
+
+class ManagerRecommendationDecision(Base):
+    __tablename__ = "manager_recommendation_decisions"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "check_in", "nights", "adults", "boarding_canonical",
+            name="uq_mrd_user_checkin_nights_adults_boarding",
+        ),
+        CheckConstraint("status IN ('accepted', 'dismissed')", name="ck_mrd_status"),
+        Index("idx_mrd_user_checkin", "user_id", "check_in"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    hotel_id: Mapped[int] = mapped_column(Integer, ForeignKey("platform_hotels.id"))
+    check_in: Mapped[datetime.date] = mapped_column(nullable=False)
+    nights: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    adults: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    boarding_canonical: Mapped[str] = mapped_column(String, nullable=False)
+    recommended_price_tnd: Mapped[Optional[float]] = mapped_column(Numeric)
+    status: Mapped[str] = mapped_column(String, nullable=False)
+    decided_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now())
