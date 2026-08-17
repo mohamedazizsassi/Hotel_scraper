@@ -7,6 +7,12 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 .mypy_cache/
+.ipynb_checkpoints/
+
+# Node / Angular
+node_modules/
+dist/
+.angular/
 
 # Virtual environment
 .venv/
@@ -20,7 +26,12 @@ scraper/_*.log
 
 # ML artifacts
 ml/artifacts/*.parquet
+ml/artifacts/*.zip
 ml/artifacts/cache/
+ml/artifacts/_smoke_check/
+ml/artifacts/reports/
+ml/artifacts/studies/
+ml/catboost_info/
 # Trained model dumps (LightGBM booster .txt files + per-run metadata).
 # Reproducible from code + seed; not worth tracking in git.
 ml/models/forecasting/lgbm_quantile_*/
@@ -34,9 +45,12 @@ Pfe Report/
 # Personal notes
 Files for me/
 
-# Claude
+# Claude Code / AI tooling metadata (local session state, not project code)
 CLAUDE.md
 .claude/
+.claire/
+.superpowers/
+.understand-anything/
 docs/
 
 # Environment files

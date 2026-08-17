@@ -6,7 +6,8 @@
 --
 -- Creates one admin user with:
 --   email: admin@revway.tn
---   password: REDACTED_DEV_PASSWORD
+--   password: not stored in this file — see your local notes / secrets
+--     manager for the dev password, or generate a new one and re-hash below
 --   full_name: Development Admin
 --
 -- NOTE: '@revway.local' was the original placeholder domain here, but the
@@ -23,8 +24,8 @@
 INSERT INTO users (email, password_hash, full_name, role, is_active) VALUES
     (
         'admin@revway.tn',
-        -- Real bcrypt hash of 'REDACTED_DEV_PASSWORD' (generated via bcrypt.hashpw — verified to authenticate via POST /auth/login)
-        '$2b$12$NcyuWA7nUiewgNkso5kCiurKkQS6zwv2Hi/aIzMvudK4Qnmsf9GOS',
+        -- bcrypt hash of a rotated dev-only password (plaintext not stored in this repo)
+        '$2b$12$W5c1j8TzmPlDClVOhHHkku.YTmDYWefNVYv.N2wj3k9yufWWFZ0KC',
         'Development Admin',
         'admin',
         TRUE

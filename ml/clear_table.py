@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv('.env')
 
-postgres_uri = os.environ.get('POSTGRES_URI', 'postgresql://revway:REDACTED@localhost:5432/revway')
+postgres_uri = os.environ.get('POSTGRES_URI', 'postgresql://revway:CHANGE_ME@localhost:5432/revway')
 table_name = 'hotel_features'
 
 try:

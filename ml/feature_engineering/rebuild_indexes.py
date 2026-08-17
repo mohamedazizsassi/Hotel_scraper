@@ -26,7 +26,7 @@ from .writers import HOTEL_FEATURES_SERVING_INDEXES, add_serving_indexes
 
 def main() -> int:
     uri = os.environ.get(
-        "POSTGRES_URI", "postgresql://revway:REDACTED@localhost:5432/revway"
+        "POSTGRES_URI", "postgresql://revway:CHANGE_ME@localhost:5432/revway"
     )
     engine = create_engine(uri)
 

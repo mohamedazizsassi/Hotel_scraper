@@ -7,13 +7,14 @@
 -- Creates a manager assigned to a real hotel that has data in hotel_features,
 -- so the /manager/* endpoints return live forecaster/recommender output:
 --   email:    manager@revway.tn
---   password: REDACTED_DEV_PASSWORD  (bcrypt hash below)
+--   password: not stored in this file — see your local notes / secrets
+--             manager for the dev password, or generate a new one below
 --   hotel:    iberostar averroes (Hammamet, 4*)
 --   competitors: el mouradi hammamet, bel azur thalasso bungalows,
 --                aziza beach golf spa adults only 16 ans, concorde marco polo
 --
--- To regenerate the bcrypt hash:
---   python -c "import bcrypt; print(bcrypt.hashpw(b'REDACTED_DEV_PASSWORD', bcrypt.gensalt()).decode())"
+-- To regenerate the bcrypt hash for a new password:
+--   python -c "import bcrypt; print(bcrypt.hashpw(b'your_password', bcrypt.gensalt()).decode())"
 --
 -- Idempotent: ON CONFLICT guards make this safe to re-run.
 
@@ -39,7 +40,7 @@ ON CONFLICT (hotel_name_normalized, city_id) DO NOTHING;
 INSERT INTO users (email, password_hash, full_name, role)
 VALUES (
     'manager@revway.tn',
-    '$2b$12$sVHjHFWoXZPwKGyOh.EPNO9JHJnjSCpAp2m1d5Bac7rj.FZN6Ia7O',  -- REDACTED_DEV_PASSWORD
+    '$2b$12$dvz4G361AKFYL57PYGpxiOka6kt42WostwdLA6yeQ8KSEPD/KPDVW',  -- bcrypt hash of a rotated dev-only password
     'Iberostar Averroes Manager',
     'manager'
 )

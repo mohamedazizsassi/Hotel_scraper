@@ -49,7 +49,7 @@ LEFT JOIN calendar_dim c USING (check_in)
 LEFT JOIN segment_dim  s USING (city_name, stars_int);
 """
 
-engine = create_engine("postgresql://revway:REDACTED@localhost:5432/revway")
+engine = create_engine("postgresql://revway:CHANGE_ME@localhost:5432/revway")
 with engine.begin() as conn:
     conn.execute(text(VIEW_SQL))
     print("VIEW hotel_features_full created.")

@@ -68,7 +68,7 @@ pd.set_option("display.max_columns", 200)
 warnings.filterwarnings("ignore", category=UserWarning)
 
 ENGINE = create_engine(
-    os.environ.get("POSTGRES_URI", "postgresql://revway:REDACTED@localhost:5432/revway")
+    os.environ.get("POSTGRES_URI", "postgresql://revway:CHANGE_ME@localhost:5432/revway")
 )
 
 def q(sql: str, **params) -> pd.DataFrame:
