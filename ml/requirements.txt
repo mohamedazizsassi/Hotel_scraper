@@ -13,3 +13,6 @@ jupyter
 ipykernel
 statsmodels
 pymongoarrow
+catboost>=1.2
+xgboost>=2.0.3
+optuna>=3.6
